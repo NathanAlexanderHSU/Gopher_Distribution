@@ -1,0 +1,110 @@
+require(raster)
+require(dismo)
+require(rgdal)
+require(reshape2)
+require(ggplot2)
+all.pts<-readOGR(dsn="C:/Users/Nathan/Desktop/Gopher/INHS_GBIF_combined",layer="GBIF_INHS_post1950")
+survey<-readOGR(dsn="C:/Users/Nathan/Desktop/Gopher/PocketGophers/Pilot Study",layer="Merged_84t")
+Survey.om<-na.omit(survey)
+Survey.om$Gopher_Sig
+plot(all.pts)
+
+rast_stand<-raster(choose.files())
+plot(rast_stand)
+
+rast_fifth<-raster(choose.files())
+plot(rast_fifth)
+
+rast_tenth<-raster(choose.files())
+plot(rast_tenth)
+
+points(all.pts)
+points(survey, pch=17, col="red")
+
+
+Values_stand<-extract(rast_stand, all.pts)
+Values_fifth<-extract(rast_fifth, all.pts)
+Values_tenth<-extract(rast_tenth, all.pts)
+
+survey_stand<-extract(rast_stand, Survey.om)
+Gopher_occ_stand<-data.frame(Survey.om$Gopher_Sig,survey_stand)
+colnames(Gopher_occ_stand)<-c("Sign","Habitat Value")
+
+train_data<-data.frame(paste("Training Data"),Values_stand)
+colnames(train_data)<-c("Sign","Habitat Value")
+Standard<-rbind(train_data,Gopher_occ_stand)
+
+Stand.com<-data.frame(paste("Standard"),Standard[,1],Standard[,2])
+dim(Stand.com)
+colnames(Stand.com)<-c("Resolution","Data Type","Habitat Value")
+
+Stand.m<-na.omit(melt(Standard,id="Sign"))
+head(Stand.m)
+
+ggplot(data = Stand.m, aes(x=Sign, y=value)) + geom_boxplot(aes(fill=Sign))+
+xlab("Detection") + ylab("Habitat Suitability") + ggtitle("Standard Resolution Training and Prediction Data")+
+guides(fill=guide_legend(title=" "))
+
+
+survey_fifth<-extract(rast_fifth, Survey.om)
+Gopher_occ_fifth<-data.frame(Survey.om$Gopher_Sig,survey_fifth)
+
+colnames(Gopher_occ_fifth)<-c("Sign","Habitat Value")
+train_data_fifth<-data.frame(paste("Training Data"),Values_fifth)
+
+colnames(train_data_fifth)<-c("Sign","Habitat Value")
+Fifth<-rbind(train_data_fifth,Gopher_occ_fifth)
+
+Fifth.com<-data.frame(paste("Fifth"),Fifth[,1],Fifth[,2])
+dim(Fifth.com)
+colnames(Fifth.com)<-c("Resolution","Data Type","Habitat Value")
+
+
+Fifth.m<-na.omit(melt(Fifth,id="Sign"))
+head(Fifth.m)
+
+ggplot(data = Fifth, aes(x="Sign", y="Habitat Value")) + geom_boxplot(aes(fill=Sign))#+
+xlab("Detection") + ylab("Habitat Suitability") + ggtitle("Fifth Resolution Training and Prediction Data")+
+guides(fill=guide_legend(title=" "))
+
+
+survey_tenth<-extract(rast_tenth, Survey.om)
+Gopher_occ_tenth<-data.frame(Survey.om$Gopher_Sig,survey_tenth)
+colnames(Gopher_occ_tenth)<-c("Sign","Habitat Value")
+
+train_data_tenth<-data.frame(paste("Training Data"),Values_tenth)
+colnames(train_data_tenth)<-c("Sign","Habitat Value")
+
+Tenth<-rbind(train_data_tenth,Gopher_occ_tenth)
+Tenth.com<-data.frame(paste("Tenth"),Tenth[,1],Tenth[,2])
+
+colnames(Tenth.com)<-c("Resolution","Data Type","Habitat Value")
+
+
+Tenth.m<-na.omit(melt(Tenth,id="Sign"))
+head(Tenth.m)
+
+ggplot(data = Tenth.m, aes(x=Sign, y=value)) + geom_boxplot(aes(fill=Sign))+
+xlab("Detection") + ylab("Habitat Suitability") + ggtitle("Tenth Resolution Training and Prediction Data")+
+guides(fill=guide_legend(title=" "))
+
+
+all_values<-cbind(Values_stand,survey_stand,Values_fifth,survey_fifth,Values_tenth,survey_tenth)
+colnames(all_values)<-c("Standard","Survey Standard","Fifth","Survey Fifth","Tenth","Survey Tenth")
+head(all_values)
+all.m<-melt(all_values)
+head(all.m)
+
+
+All.combo<-rbind(Stand.com,Fifth.com,Tenth.com)
+
+All.combo$interaction<-interaction(All.combo[,1],All.combo[,2])
+head(All.combo)
+all.combo.m<-na.omit(melt(All.combo,by="interaction"))
+
+colnames(all.combo.m)<-c("Resolution","Detection","interaction","variable","value")
+
+ggplot(data = all.combo.m, aes(x=Detection, y=value, fill=Resolution)) + geom_boxplot()+
+xlab("Raster Resolution") + ylab("Habitat Suitability") + ggtitle("Habitat Resolution of Training and Pilot Data")+
+theme(plot.title = element_text(hjust = 0.5)) + guides(fill=guide_legend(title="Raster Resolution"))
+
