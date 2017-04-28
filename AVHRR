@@ -1,0 +1,62 @@
+install.packages("gimms")
+
+install.packages("ncdf4")
+require(gimms)
+
+setwd(choose.dir())
+
+gimms_files<-updateInventory()
+(gimms_files)
+gimms_files[1:5]
+downloadGimms(dsn = paste0(getwd(), "/data"))
+getwd()
+gimms_files <- list.files(paste(c(getwd(), "/data")))
+setwd(choose.dir())
+gimms_files<-list.files()
+
+#gimms_raster <- rasterizeGimms(gimms_files, 
+#                               filename = paste0(gimms_files, ".tif"))
+
+gimms_files_tif<-list.files(pattern = ".tif")
+gimms_files_tif <- sapply(gimms_raster@layers, function(i) attr(i@file, "name"))
+length(gimms_files_tif)
+
+require(rgdal)
+require(raster)
+
+illinois<-readOGR(dsn="C:/Users/Nathan/Desktop/Gopher/Political Boundaries",layer="IL_BNDY_County_Py")
+plot(illinois)
+
+Rasts<-stack(gimms_files_tif)
+Crop_Rast<-crop(Rasts,illinois) 
+plot(Crop_Rast[[1]])
+names(Crop_Rast[[2]])
+Crop_Rast
+monthlyIndices(
+Month<-monthlyComposite(Crop_Rast, indices=monthlyIndices(gimms_files_tif), fun = mean,cores = 8)
+plot(Month[[1]])
+plot(maxValue(Month))
+
+
+NDVI_mean<-mean(Month)
+NDVI_mean
+plot(NDVI_mean)
+a<-raster(gimms_files_tif[1])
+plot(a)
+##Write the cropped NDVI data to a file.
+##tif will allow the files to be read in as a stack later on
+
+writeRaster(NDVI_, "NDVI_Stack.tif")
+NDVI_1<-stack("NDVI_Stack.tif")
+
+##decided to average NDVI; may bot be the best option 
+
+NDVI_avg<-overlay(Month, fun=mean)
+plot(NDVI_avg)
+getwd()
+writeRaster(NDVI_avg,"NDVI_avg.ascii")
+a<-raster(choose.files())
+plot(a)
+NDVI_mask<-mask(NDVI_avg,illinois)
+plot(illinois,add=TRUE)
+plot(NDVI_avg,add=TRUE)
