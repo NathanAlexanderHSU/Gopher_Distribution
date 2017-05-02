@@ -1,3 +1,21 @@
+Skip to content
+This repository
+Search
+Pull requests
+Issues
+Gist
+ @NathanAlexanderHSU
+ Sign out
+ Unwatch 1
+  Star 0
+ Fork 0 NathanAlexanderHSU/Gopher_Distribution
+ Code  Issues 0  Pull requests 0  Projects 0  Wiki  Pulse  Graphs  Settings
+Branch: master Find file Copy pathGopher_Distribution/MaxEnt Code
+7668eca  4 days ago
+@NathanAlexanderHSU NathanAlexanderHSU Create MaxEnt Code
+1 contributor
+RawBlameHistory     
+326 lines (235 sloc)  9.42 KB
 ### Download Gopher sp. from GBIF
 install.packages("dismo")
 library(dismo)
@@ -61,11 +79,11 @@ getwd()
 writeOGR(re.sp.occur.spdf, ".", "GBIF_occurrences", driver="ESRI Shapefile")
 writeOGR(re.INHS, ".", "INHS_occurrences", driver="ESRI Shapefile")
 ##export to ArcMap and combine into one file there##
-##select by attribute in ArcMap to identify occurrences post 1950##
 
 all.pts<-readOGR(dsn="C:/Users/Nathan/Desktop/Gopher/INHS_GBIF_combined",layer="GBIF_INHS_post1950_true")
-points(all.pts,col="red")
-class(all.pts)
+points(all.pts,col="blue")
+colnames(all.pts)
+re.sp.occur.spdf<-data.frame(all.pts)
 ############################################################
 ##plot points on a googlemap
 
@@ -92,7 +110,7 @@ ggmap(mapImageData,
 
   geom_point(aes(x = lon, # path outline
   y = lat),
-  data = IL.occur_df,
+  data = all.pts,
   colour = "yellow",
   size = 2) 
  
@@ -148,7 +166,7 @@ clim<-crop(clim.W,illinois)
 ##crop data to Illinois
 NDVI_avg<-raster("C:/Users/Nathan/Desktop/Gopher/Environmental Shapefiles/Landsat/AVHRR/data/NDVI_avg.asc")
 NDVI_avg<-mask(NDVI_avg,illinois)
-plot(NDVI_avg)
+
 points(all.pts,pch=17,col="red")
 plot(illinois,add=TRUE)
 ##have to fix crs (switch to WGS 84) for illinois to mask
@@ -203,15 +221,16 @@ predictors<-stack(predictors,NDVI_avg) # add correct NDVI_avg
 #NDVI=23
 
 
-#read in rasterstack
+#read in rasterstack: MaxentPredictors_TRUE is currently correct 5/2/2017
 predictors<-stack(choose.files())
-plot(predictors)
+
 
 reduced.preds <- stack(c(predictors[[5]], predictors[[6]], predictors[[12]],
                          predictors[[13]],predictors[[14]],predictors[[20]],predictors[[21]],predictors[[22]],predictors[[23]]))
 plot(reduced.preds)
 try<-scale(reduced.preds)
 CovarianceTable<-layerStats(try,'cov',na.rm=TRUE)
+CovarianceTable
 write.csv(CovarianceTable,"Gopher_Maxent_CovarianceTable.csv")
 
 
@@ -324,3 +343,5 @@ plot(Geomys_Pred)
 points(all.pts,col="blue")
 
 writeRaster(Geomys_Pred,"C:/Users/Nathan/Desktop/Gopher/Top_MaxEnt_Model/Geomys_predicted.asc",format="ascii",overwrite=TRUE)
+Contact GitHub API Training Shop Blog About
+© 2017 GitHub, Inc. Terms Privacy Security Status Help
