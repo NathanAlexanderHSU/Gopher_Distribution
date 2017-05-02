@@ -61,8 +61,9 @@ getwd()
 writeOGR(re.sp.occur.spdf, ".", "GBIF_occurrences", driver="ESRI Shapefile")
 writeOGR(re.INHS, ".", "INHS_occurrences", driver="ESRI Shapefile")
 ##export to ArcMap and combine into one file there##
+##select by attribute in ArcMap to identify occurrences post 1950##
 
-all.pts<-readOGR(dsn="C:/Users/Nathan/Desktop/Gopher/INHS_GBIF_combined",layer="GBIF_INHS_post1950")
+all.pts<-readOGR(dsn="C:/Users/Nathan/Desktop/Gopher/INHS_GBIF_combined",layer="GBIF_INHS_post1950_true")
 points(all.pts,col="red")
 class(all.pts)
 ############################################################
