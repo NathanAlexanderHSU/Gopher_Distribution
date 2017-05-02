@@ -3,7 +3,7 @@ require(dismo)
 require(rgdal)
 require(reshape2)
 require(ggplot2)
-all.pts<-readOGR(dsn="C:/Users/Nathan/Desktop/Gopher/INHS_GBIF_combined",layer="GBIF_INHS_post1950")
+all.pts<-readOGR(dsn="C:/Users/Nathan/Desktop/Gopher/INHS_GBIF_combined",layer="GBIF_INHS_post1950_true")
 survey<-readOGR(dsn="C:/Users/Nathan/Desktop/Gopher/PocketGophers/Pilot Study",layer="Merged_84t")
 Survey.om<-na.omit(survey)
 Survey.om$Gopher_Sig
