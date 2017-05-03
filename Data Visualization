@@ -63,10 +63,6 @@ colnames(Fifth.com)<-c("Resolution","Data Type","Habitat Value")
 Fifth.m<-na.omit(melt(Fifth,id="Sign"))
 head(Fifth.m)
 
-ggplot(data = Fifth, aes(x="Sign", y="Habitat Value")) + geom_boxplot(aes(fill=Sign))#+
-xlab("Detection") + ylab("Habitat Suitability") + ggtitle("Fifth Resolution Training and Prediction Data")+
-guides(fill=guide_legend(title=" "))
-
 
 survey_tenth<-extract(rast_tenth, Survey.om)
 Gopher_occ_tenth<-data.frame(Survey.om$Gopher_Sig,survey_tenth)
@@ -105,6 +101,38 @@ all.combo.m<-na.omit(melt(All.combo,by="interaction"))
 colnames(all.combo.m)<-c("Resolution","Detection","interaction","variable","value")
 
 ggplot(data = all.combo.m, aes(x=Detection, y=value, fill=Resolution)) + geom_boxplot()+
-xlab("Raster Resolution") + ylab("Habitat Suitability") + ggtitle("Habitat Resolution of Training and Pilot Data")+
-theme(plot.title = element_text(hjust = 0.5)) + guides(fill=guide_legend(title="Raster Resolution"))
+xlab("Detection") + ylab("Habitat Suitability") + ggtitle("Habitat Suitability of Training and Pilot Data Dependent on Resolution")+
+theme(plot.title = element_text(hjust = 0.5)) + guides(fill=guide_legend(title="Raster Resolution"))+
+theme_classic()
+
+######################################################
+#############Data exploration Visualization###########
+######################################################
+
+all.pts<-readOGR(dsn="C:/Users/Nathan/Desktop/Gopher/INHS_GBIF_combined",layer="GBIF_INHS_post1950_true")
+all.pts_df<-data.frame(all.pts)
+Occ_by_Year<-as.data.frame((table(all.pts_df$Year)))
+colnames(Occ_by_Year)<-c("Year","Count")
+
+head(Occ_by_Year)
+Occurrences<-data.frame(1950:2017,NA)
+colnames(Occurrences)<-c("Year","Count")
+for(i in 1:length(Occurrences[,1])) {
+	for(j in 1:length(Occ_by_Year[,1])){
+	if (Occurrences$Year[i]==Occ_by_Year$Year[j]){
+	Occurrences[i,2]<-Occ_by_Year$Count[j]
+}
+}
+}
+plot(Occurrences)
+
+barplot(Occurrences$Count)
+
+
+ggplot(data=Occurrences, aes(x=Year,y=Count)) +
+  geom_bar(stat='identity', fill="darkred") +
+  geom_text(stat='identity', aes(label=Count), vjust=-0.3, size=3.5)+
+  theme_minimal()+
+  xlab("Year") + ylab("Frequeny") + ggtitle("Recorded Geomys Occurrences")+
+  theme(plot.title = element_text(hjust = 0.5))
 
