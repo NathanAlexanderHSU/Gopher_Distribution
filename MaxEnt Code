@@ -1,22 +1,4 @@
-Skip to content
-This repository
-Search
-Pull requests
-Issues
-Gist
- @NathanAlexanderHSU
- Sign out
- Unwatch 1
-  Star 0
- Fork 0 NathanAlexanderHSU/Gopher_Distribution
- Code  Issues 0  Pull requests 0  Projects 0  Wiki  Pulse  Graphs  Settings
-Branch: master Find file Copy pathGopher_Distribution/MaxEnt Code
-7668eca  4 days ago
-@NathanAlexanderHSU NathanAlexanderHSU Create MaxEnt Code
-1 contributor
-RawBlameHistory     
-326 lines (235 sloc)  9.42 KB
-### Download Gopher sp. from GBIF
+
 install.packages("dismo")
 library(dismo)
 install.packages("rgdal")
@@ -214,7 +196,7 @@ predictors<-stack(predictors,NDVI_avg) # add correct NDVI_avg
 #Temp of Coldest month=6
 #annual rainfall =12
 #Rain of wettest month=13
-#Rain of dryest month= 14
+#Rain of driest month= 14
 #elevation= 20
 #slope=21
 #soil=22
@@ -261,7 +243,8 @@ write.csv(CovarianceTable,"C:/Users/Nathan/Desktop/Gophers/Gopher_Maxent_tenth_C
 ###MaxEnt for different combinations###
 #######################################
 names(occ.pts)
-predictors<-reduced.preds_fifth
+predictors<-reduced.preds_tenth
+
 occ.pts<-all.pts
 beta.parameters <- c(1,2)
 #beta.parameters<-1 # Create a vector of all the beta paremeters
@@ -278,10 +261,11 @@ for(i in 2:pred.num){
 
 all.combos
 class(all.combos)
-
+occ.pts
+for(
 for(i in beta.parameters){ # Create a loop for each beta parameter
   for(j in 1:length(all.combos)){
-output.dir <- paste("C:\\Users\\Nathan\\Desktop\\Gopher\\MaxEnt_FULL_tenthRes\\b", i, ".", 
+output.dir <- paste("C:\\Users\\Nathan\\Desktop\\Gopher\\MaxEnt_FULL_tenthRes_post1950\\b", i, ".", 
                         paste(all.combos[[j]], collapse=''), sep="")   
 print(output.dir)
 model <- maxent(predictors[[all.combos[[j]]]], occ.pts,
@@ -304,44 +288,49 @@ points(Long,Lat,col="blue")
 
 enmtools.occpts <- data.frame(name, Long, Lat)
 colnames(enmtools.occpts) <- c("Species", "X", "Y")
-write.csv(enmtools.occpts,"C:\\Users\\Nathan\\Desktop\\Gopher\\MaxEnt_FULL_tenthRes\\geomys.csv" , row.names=FALSE)
+write.csv(enmtools.occpts,"C:\\Users\\Nathan\\Desktop\\Gopher\\MaxEnt_FULL_tenthRes_post1950\\geomys.csv" , row.names=FALSE)
 
 
 head(enmtools.occpts)
 plot(enmtools.occpts$Y~enmtools.occpts$X,add=TRUE, pch=17)
 points(occ.pts,add=TRUE)
-setwd("C:\\Users\\Nathan\\Desktop\\Gopher\\MaxEnt_FULL_tenthRes")
+setwd("C:\\Users\\Nathan\\Desktop\\Gopher\\MaxEnt_FULL_tenthRes_post1950")
 
 dirs <- list.files()
 dirs
 
 models <- NULL
 for(i in 1:length(dirs)){
-  models[i] <- paste("C:\\Users\\Nathan\\Desktop\\Gopher\\MaxEnt_FULL\\geomys.csv,","C:\\Users\\Nathan\\Desktop\\Gopher\\MaxEnt_FULL_fifthRes\\",dirs[i], 
-			"\\maxent.asc,C:\\Users\\Nathan\\Desktop\\Gopher\\MaxEnt_FULL_fifthRes\\", dirs[i],
+  models[i] <- paste("C:\\Users\\Nathan\\Desktop\\Gopher\\MaxEnt_FULL_tenthRes_post1950\\geomys.csv,","C:\\Users\\Nathan\\Desktop\\Gopher\\MaxEnt_FULL_tenthRes_post1950\\",dirs[i], 
+			"\\maxent.asc,C:\\Users\\Nathan\\Desktop\\Gopher\\MaxEnt_FULL_tenthRes_post1950\\", dirs[i],
                     "\\species.lambdas", sep="")
 }
 
-write.csv(models, "C:\\Users\\Nathan\\Desktop\\Gopher\\MaxEnt_FULL_fifthRes\\maxent_models.csv", row.names=FALSE, quote=FALSE, col.names=FALSE)
+write.csv(models, "C:\\Users\\Nathan\\Desktop\\Gopher\\MaxEnt_FULL_tenthRes_post1950\\maxent_models.csv", row.names=FALSE, quote=FALSE, col.names=FALSE)
 
 
 
 ##############################################################
 ######MaxEnt again on top model to get predictor parameters###
 ##############################################################
+names(predictors)<-c("Warmest Month Temp","Coldest Month Temp","Annual Precip","Wettest Month Precip","Driest Month Precip","Elevation","Slope","Soil","NDVI")
+plot(reduced.preds)
+names(reduced.preds_tenth)<-c("Warmest Month Temp","Coldest Month Temp","Annual Precip","Wettest Month Precip","Driest Month Precip","Elevation","Slope","Soil","NDVI")
 
-predictors1<-stack(reduced.preds[[1:5]],reduced.preds[[8:9]])
+predictors1<-stack(reduced.preds_tenth)
+plot(predictors1)
+###names for predictors at 10th Res
+#names(predictors1)<-c("Warmest Month Temp","Coldest Month Temp","Annual Precip","Wettest Month Precip","Driest Month Precip","Elevation","Slope","Soil","NDVI")
+
 plot(predictors1)
 
 geomys_model <- maxent(predictors1, all.pts,
-                    args=c("betamultiplier=1", "-J","-P"),
-		       path="C:/Users/Nathan/Desktop/Gopher/Top_MaxEnt_Model/b1.1234589")
+                    args=c("betamultiplier=1", "-J","-P")),
+		       path="C:/Users/Nathan/Desktop/Gopher/Top_MaxEnt_post1950_Model_10th/b1.123456789")
 
 plot(full.pred)
 Geomys_Pred<-predict(geomys_model,predictors1)
 plot(Geomys_Pred)
 points(all.pts,col="blue")
 
-writeRaster(Geomys_Pred,"C:/Users/Nathan/Desktop/Gopher/Top_MaxEnt_Model/Geomys_predicted.asc",format="ascii",overwrite=TRUE)
-Contact GitHub API Training Shop Blog About
-© 2017 GitHub, Inc. Terms Privacy Security Status Help
+writeRaster(Geomys_Pred,"C:/Users/Nathan/Desktop/Gopher/Top_MaxEnt_post1950_Model_10th/Geomys_predicted.asc",format="ascii",overwrite=TRUE)
