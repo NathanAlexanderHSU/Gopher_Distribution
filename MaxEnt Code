@@ -1,336 +1,122 @@
+require(raster)
+require(dismo)
+require(rgdal)
+require(reshape2)
+require(ggplot2)
+all.pts<-readOGR(dsn="C:/Users/Nathan/Desktop/Gopher/INHS_GBIF_combined",layer="GBIF_INHS_post1950_true")
+survey<-readOGR(dsn="C:/Users/Nathan/Desktop/Gopher/PocketGophers/Pilot Study",layer="Merged_84t")
+Survey.om<-na.omit(survey)
+Survey.om$Gopher_Sig
+plot(all.pts)
 
-install.packages("dismo")
-library(dismo)
-install.packages("rgdal")
-library(rgdal)
+rast_stand<-raster(choose.files())
+plot(rast_stand)
 
+rast_fifth<-raster(choose.files())
+plot(rast_fifth)
 
-###Start off by reading in and combining shape files
+rast_tenth<-raster(choose.files())
+plot(rast_tenth)
 
-##CA shapefile from Cara-projected to WGS84 in ArcMap
-
-
-illinois<-readOGR(dsn="C:/Users/Nathan/Desktop/Gopher/Political Boundaries",layer="IL_BNDY_County_Py")
-plot(illinois)
-
-INHS_gopher<-readOGR(dsn="C:/Users/Nathan/Desktop/Gopher",layer="INHSSPost1950t")
-
-##Read in species occurrence from gbif of all Geomys brusarius
-
-#sp.occur <- gbif(genus='Geomys', species='bursarius', geo=TRUE,removeZeros=TRUE)
-
-#write.csv(sp.occur, "C:\\Users\\nba52\\Desktop\\gbif-all-22jul2016.csv", row.names=FALSE)
-
-###read in sp occurrence datasheet
-
-sp.occur <- read.csv(choose.files(),header=T)
-
-##convert to spatial data frame
-
-sp.occur.spdf <- SpatialPointsDataFrame(data.frame(sp.occur$lon, sp.occur$lat), 
-                                        data=sp.occur)
-
-##Define projection
-
-sp.occur.spdf@proj4string <- illinois@proj4string
-
-sp.occur.spdf$name <- over(sp.occur.spdf, illinois)$NAME
+points(all.pts)
+points(survey, pch=17, col="red")
 
 
+Values_stand<-extract(rast_stand, all.pts)
+Values_fifth<-extract(rast_fifth, all.pts)
+Values_tenth<-extract(rast_tenth, all.pts)
 
-###Crop points
+survey_stand<-extract(rast_stand, Survey.om)
+Gopher_occ_stand<-data.frame(Survey.om$Gopher_Sig,survey_stand)
+colnames(Gopher_occ_stand)<-c("Sign","Habitat Value")
 
-re.sp.occur.spdf <- sp.occur.spdf[illinois,]
-re.INHS<-INHS_gopher[illinois,]
+train_data<-data.frame(paste("Training Data"),Values_stand)
+colnames(train_data)<-c("Sign","Habitat Value")
+Standard<-rbind(train_data,Gopher_occ_stand)
+
+Stand.com<-data.frame(paste("Standard"),Standard[,1],Standard[,2])
+dim(Stand.com)
+colnames(Stand.com)<-c("Resolution","Data Type","Habitat Value")
+
+Stand.m<-na.omit(melt(Standard,id="Sign"))
+head(Stand.m)
+
+ggplot(data = Stand.m, aes(x=Sign, y=value)) + geom_boxplot(aes(fill=Sign))+
+xlab("Detection") + ylab("Habitat Suitability") + ggtitle("Standard Resolution Training and Prediction Data")+
+guides(fill=guide_legend(title=" "))
 
 
-re.INHS@proj4string <- illinois@proj4string
+survey_fifth<-extract(rast_fifth, Survey.om)
+Gopher_occ_fifth<-data.frame(Survey.om$Gopher_Sig,survey_fifth)
 
-re.INHS$name <- over(re.INHS, illinois)$NAME
+colnames(Gopher_occ_fifth)<-c("Sign","Habitat Value")
+train_data_fifth<-data.frame(paste("Training Data"),Values_fifth)
+
+colnames(train_data_fifth)<-c("Sign","Habitat Value")
+Fifth<-rbind(train_data_fifth,Gopher_occ_fifth)
+
+Fifth.com<-data.frame(paste("Fifth"),Fifth[,1],Fifth[,2])
+dim(Fifth.com)
+colnames(Fifth.com)<-c("Resolution","Data Type","Habitat Value")
 
 
-##plot points
-plot(illinois)
-points(sp.occur.spdf)
-points(re.INHS,col="blue")
-names(re.INHS)
-names(re.sp.occur.spdf)
-all<-merge(re.sp.occur.spdf,re.INHS)
+Fifth.m<-na.omit(melt(Fifth,id="Sign"))
+head(Fifth.m)
 
-getwd()
-writeOGR(re.sp.occur.spdf, ".", "GBIF_occurrences", driver="ESRI Shapefile")
-writeOGR(re.INHS, ".", "INHS_occurrences", driver="ESRI Shapefile")
-##export to ArcMap and combine into one file there##
+
+survey_tenth<-extract(rast_tenth, Survey.om)
+Gopher_occ_tenth<-data.frame(Survey.om$Gopher_Sig,survey_tenth)
+colnames(Gopher_occ_tenth)<-c("Sign","Habitat Value")
+
+train_data_tenth<-data.frame(paste("Training Data"),Values_tenth)
+colnames(train_data_tenth)<-c("Sign","Habitat Value")
+
+Tenth<-rbind(train_data_tenth,Gopher_occ_tenth)
+Tenth.com<-data.frame(paste("Tenth"),Tenth[,1],Tenth[,2])
+
+colnames(Tenth.com)<-c("Resolution","Data Type","Habitat Value")
+
+
+Tenth.m<-na.omit(melt(Tenth,id="Sign"))
+head(Tenth.m)
+
+ggplot(data = Tenth.m, aes(x=Sign, y=value)) + geom_boxplot(aes(fill=Sign))+
+xlab("Detection") + ylab("Habitat Suitability") + ggtitle("Tenth Resolution Training and Prediction Data")+
+guides(fill=guide_legend(title=" "))
+
+
+all_values<-cbind(Values_stand,survey_stand,Values_fifth,survey_fifth,Values_tenth,survey_tenth)
+colnames(all_values)<-c("Standard","Survey Standard","Fifth","Survey Fifth","Tenth","Survey Tenth")
+head(all_values)
+all.m<-melt(all_values)
+head(all.m)
+
+
+All.combo<-rbind(Stand.com,Fifth.com,Tenth.com)
+
+All.combo$interaction<-interaction(All.combo[,1],All.combo[,2])
+head(All.combo)
+all.combo.m<-na.omit(melt(All.combo,by="interaction"))
+
+colnames(all.combo.m)<-c("Resolution","Detection","interaction","variable","value")
+
+ggplot(data = all.combo.m, aes(x=Detection, y=value, fill=Resolution)) + geom_boxplot()+
+xlab("Detection") + ylab("Habitat Suitability") + ggtitle("Habitat Suitability of Training and Pilot Data Dependent on Resolution")+
+theme(plot.title = element_text(hjust = 0.5)) + guides(fill=guide_legend(title="Raster Resolution"))
+
+######################################################
+#############Data exploration Visualization###########
+######################################################
 
 all.pts<-readOGR(dsn="C:/Users/Nathan/Desktop/Gopher/INHS_GBIF_combined",layer="GBIF_INHS_post1950_true")
-points(all.pts,col="blue")
-colnames(all.pts)
-re.sp.occur.spdf<-data.frame(all.pts)
-############################################################
-##plot points on a googlemap
+all.pts_df<-data.frame(all.pts)
+plot(na.omit(all.pts_df$Year))
 
-library(ggmap)
 
-##set up the imagery data
+ggplot(data=all.pts_df, aes(x=Year,y=)) +
+  geom_bar(stat='count',fill="darkred") +
+  geom_text(stat='count', aes(label=..count..), vjust=-0.3, size=3.5)+
+  theme_minimal()+
+  xlab("Year") + ylab("Frequeny") + ggtitle("Recorded Geomys Occurrences")+
+  theme(plot.title = element_text(hjust = 0.5))
 
-mapImageData <- get_map(location = c(lon = mean(re.sp.occur.spdf$lon),
-  lat = mean(re.sp.occur.spdf$lat)),
-  color = "color", # or bw
-  source = "google",
-  maptype = "satellite",
-  # api_key = "your_api_key", # only needed for source = "cloudmade"
-  zoom = 7)
-
-
-##plot with the points
-
-ggmap(mapImageData,
-  extent = "device", # "panel" keeps in axes, etc.
-  ylab = "Latitude",
-  xlab = "Longitude",
-  legend = "right") +
-
-  geom_point(aes(x = lon, # path outline
-  y = lat),
-  data = all.pts,
-  colour = "yellow",
-  size = 2) 
- 
-###########################################################
-write all the shapefiles
-#setwd(choose.dir())
-#writeOGR(re.sp.occur.spdf, dsn = '.', layer = 'Geomys', driver = 'ESRI Shapefile')
-
-#write.csv(IL.occur_df, "Geomys.csv")
-
-##########################################################
-###############MAXENT MODEL START#########################
-##########################################################
-
-install.packages("spatstat")
-install.packages("rgdal")
-install.packages("raster")
-install.packages("maptools")
-install.packages("rgeos")
-install.packages("rJava")
-install.packages("sp")
-install.packages("PresenceAbsence")
-require(spatstat)
-require(rgdal)
-require(raster)
-require(maptools)
-require(rgeos)
-require(dismo)
-require(rJava)
-require(sp)
-require(PresenceAbsence)
-
-
-
-##load points
-
-occ.pts<-re.sp.occur.spdf
-
-##Predictor variables
-
-##For downloading data, need to set directory to where it can be saved
-setwd(choose.dir()) 
-
-##elevation
-
-elev <- getData('alt', download=TRUE, country='USA', mask=TRUE)
-elev.48 <- elev[[1]]
-
-##Bioclim
-clim.W<-getData('worldclim',var='bio',res=2.5)
-clim<-crop(clim.W,illinois)
-
-##crop data to Illinois
-NDVI_avg<-raster("C:/Users/Nathan/Desktop/Gopher/Environmental Shapefiles/Landsat/AVHRR/data/NDVI_avg.asc")
-NDVI_avg<-mask(NDVI_avg,illinois)
-
-points(all.pts,pch=17,col="red")
-plot(illinois,add=TRUE)
-##have to fix crs (switch to WGS 84) for illinois to mask
-
-crs(illinois)<-crs(clim)
-
-
-cr.clim<-mask(clim,illinois)
-cr.elev<-crop(elev.48,illinois)
-cr.elev<-mask(cr.elev,illinois)
-NDVI_avg<-mask(NDVI_avg,illinois)
-NDVI_avg<-resample(NDVI_avg,cr.elev)
-plot(NDVI_avg)
-plot(illinois,add=TRUE)
-##soil
-
-soil<-readOGR(dsn="C:/Users/Nathan/Desktop/Gopher/Environmental Shapefiles/wss_gsmsoil_IL_[2006-07-06]/spatial",layer="gsmsoilmu_a_il")
-cr.clim<-resample(cr.clim,cr.elev)
-r<-raster(ncol=ncol(cr.clim[[1]]),nrow=nrow(cr.clim[[1]]))
-extent(r)<-extent(cr.clim)
-soil.ras = rasterize( soil, r, 'MUKEY')
-plot(soil.ras)
-plot(cr.elev,add=TRUE)
-compareRaster(cr.clim,soil.ras,cr.elev,NDVI_avg)
-
-
-##convert elevation to slope
-slope<-terrain(cr.elev,opt='slope',unit='degrees',neighbors=8)
-plot(slope)
-##select predictors
-predictors <- stack(cr.clim,cr.elev,slope,soil.ras,NDVI_avg)
-
-writeRaster(predictors,"MaxentPredictors_TRUE.tif",overwrite=TRUE)
-
-###Read in already written predictors
-##resample NDVI
-NDVI_avg<-resample(NDVI_avg,predictors[[1]])
-plot(NDVI_avg)
-compareRaster(predictors,NDVI_avg)
-
-predictors<-stack(choose.files())
-predictors<-predictors[[-23]] #remove the wrong NDVI file
-predictors<-stack(predictors,NDVI_avg) # add correct NDVI_avg
-#Temp of Warmest month=5
-#Temp of Coldest month=6
-#annual rainfall =12
-#Rain of wettest month=13
-#Rain of driest month= 14
-#elevation= 20
-#slope=21
-#soil=22
-#NDVI=23
-
-
-#read in rasterstack: MaxentPredictors_TRUE is currently correct 5/2/2017
-predictors<-stack(choose.files())
-
-
-reduced.preds <- stack(c(predictors[[5]], predictors[[6]], predictors[[12]],
-                         predictors[[13]],predictors[[14]],predictors[[20]],predictors[[21]],predictors[[22]],predictors[[23]]))
-plot(reduced.preds)
-try<-scale(reduced.preds)
-CovarianceTable<-layerStats(try,'cov',na.rm=TRUE)
-CovarianceTable
-write.csv(CovarianceTable,"Gopher_Maxent_CovarianceTable.csv")
-
-
-###resample to different scales
-
-ext = extent(reduced.preds)
-
-r1 = raster(ext,ncol=ncol(reduced.preds)/5,nrow=nrow(reduced.preds)/5)
-reduced.preds_fifth<-resample(reduced.preds,r1)
-
-r2 = raster(ext,ncol=ncol(reduced.preds)/10,nrow=nrow(reduced.preds)/10)
-reduced.preds_tenth<-resample(reduced.preds,r2)
-
-####Covariance matrices for the resampled rasters
-try_fifth<-scale(reduced.preds_fifth)
-CovarianceTable<-layerStats(try_fifth,'cov',na.rm=TRUE)
-write.csv(CovarianceTable,"C:/Users/Nathan/Desktop/Gophers/Gopher_Maxent_fifth_CovarianceTable.csv")
-
-try_tenth<-scale(reduced.preds_tenth)
-CovarianceTable<-layerStats(try_tenth,'cov',na.rm=TRUE)
-write.csv(CovarianceTable,"C:/Users/Nathan/Desktop/Gophers/Gopher_Maxent_tenth_CovarianceTable.csv")
-
-
-##Trial maxent
-##move maxent.jar file here: C:/Program Files/R/R-3.3.1/library/dismo/java/maxent.jar.
-
-#######################################
-###MaxEnt for different combinations###
-#######################################
-names(occ.pts)
-predictors<-reduced.preds_tenth
-
-occ.pts<-all.pts
-beta.parameters <- c(1,2)
-#beta.parameters<-1 # Create a vector of all the beta paremeters
-
-for(i in beta.parameters){
-  print(paste("Run Maxent with", i, "as the beta parameter"))
-}
-
-all.combos <- list()
-pred.num <- nlayers(predictors)
-for(i in 2:pred.num){
-  all.combos <- c(all.combos, combn(1:pred.num, i, simplify=FALSE))
-}
-
-all.combos
-class(all.combos)
-occ.pts
-for(
-for(i in beta.parameters){ # Create a loop for each beta parameter
-  for(j in 1:length(all.combos)){
-output.dir <- paste("C:\\Users\\Nathan\\Desktop\\Gopher\\MaxEnt_FULL_tenthRes_post1950\\b", i, ".", 
-                        paste(all.combos[[j]], collapse=''), sep="")   
-print(output.dir)
-model <- maxent(predictors[[all.combos[[j]]]], occ.pts,
-                    args=c(paste("betamultiplier=", i, sep=""), "outputformat=raw"),
-                           path=output.dir)
-    max.results <- predict(model, predictors[[all.combos[[j]]]])
-    writeRaster(max.results, paste(output.dir, "/maxent.asc", sep=""),
-                format="ascii")
-    print(paste(j, " of ", length(all.combos), ": ", Sys.time(), sep=""))
-  }
-  
-}
-
-name <- rep("geomys",nrow(occ.pts))
-#have to subset longitude and latitude column based on INHS or GBIF data
-
-Long<-c(occ.pts$Longitude[occ.pts$Longitude!=0],occ.pts$sp_ccr_ln[occ.pts$sp_ccr_ln!=0])
-Lat<-c(occ.pts$Latitude[occ.pts$Latitude!=0],occ.pts$sp_ccr_lt[occ.pts$sp_ccr_lt!=0])
-points(Long,Lat,col="blue")
-
-enmtools.occpts <- data.frame(name, Long, Lat)
-colnames(enmtools.occpts) <- c("Species", "X", "Y")
-write.csv(enmtools.occpts,"C:\\Users\\Nathan\\Desktop\\Gopher\\MaxEnt_FULL_tenthRes_post1950\\geomys.csv" , row.names=FALSE)
-
-
-head(enmtools.occpts)
-plot(enmtools.occpts$Y~enmtools.occpts$X,add=TRUE, pch=17)
-points(occ.pts,add=TRUE)
-setwd("C:\\Users\\Nathan\\Desktop\\Gopher\\MaxEnt_FULL_tenthRes_post1950")
-
-dirs <- list.files()
-dirs
-
-models <- NULL
-for(i in 1:length(dirs)){
-  models[i] <- paste("C:\\Users\\Nathan\\Desktop\\Gopher\\MaxEnt_FULL_tenthRes_post1950\\geomys.csv,","C:\\Users\\Nathan\\Desktop\\Gopher\\MaxEnt_FULL_tenthRes_post1950\\",dirs[i], 
-			"\\maxent.asc,C:\\Users\\Nathan\\Desktop\\Gopher\\MaxEnt_FULL_tenthRes_post1950\\", dirs[i],
-                    "\\species.lambdas", sep="")
-}
-
-write.csv(models, "C:\\Users\\Nathan\\Desktop\\Gopher\\MaxEnt_FULL_tenthRes_post1950\\maxent_models.csv", row.names=FALSE, quote=FALSE, col.names=FALSE)
-
-
-
-##############################################################
-######MaxEnt again on top model to get predictor parameters###
-##############################################################
-names(predictors)<-c("Warmest Month Temp","Coldest Month Temp","Annual Precip","Wettest Month Precip","Driest Month Precip","Elevation","Slope","Soil","NDVI")
-plot(reduced.preds)
-names(reduced.preds_tenth)<-c("Warmest Month Temp","Coldest Month Temp","Annual Precip","Wettest Month Precip","Driest Month Precip","Elevation","Slope","Soil","NDVI")
-
-predictors1<-stack(reduced.preds_tenth)
-plot(predictors1)
-###names for predictors at 10th Res
-#names(predictors1)<-c("Warmest Month Temp","Coldest Month Temp","Annual Precip","Wettest Month Precip","Driest Month Precip","Elevation","Slope","Soil","NDVI")
-
-plot(predictors1)
-
-geomys_model <- maxent(predictors1, all.pts,
-                    args=c("betamultiplier=1", "-J","-P")),
-		       path="C:/Users/Nathan/Desktop/Gopher/Top_MaxEnt_post1950_Model_10th/b1.123456789")
-
-plot(full.pred)
-Geomys_Pred<-predict(geomys_model,predictors1)
-plot(Geomys_Pred)
-points(all.pts,col="blue")
-
-writeRaster(Geomys_Pred,"C:/Users/Nathan/Desktop/Gopher/Top_MaxEnt_post1950_Model_10th/Geomys_predicted.asc",format="ascii",overwrite=TRUE)
