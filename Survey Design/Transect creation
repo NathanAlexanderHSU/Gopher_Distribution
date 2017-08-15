@@ -96,4 +96,6 @@ writeOGR(Rand_4$transects,dsn="C:\\Users\\Nathan\\Desktop\\Gopher\\Survey Design
 ###Will have to reposition transects in ArcMap to ensure that they overlap suitable habitat
 ### Will also have to validate names going forward. Converting KMZ file to shapefile dissociated site numbering
 
+##may need to alter labeling of Rand_transects. Seems to be one less than the gdb layer file
+
 
