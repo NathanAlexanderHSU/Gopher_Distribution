@@ -1,0 +1,98 @@
+install.packages("spatialEco")
+
+library(sp)
+library(raster)
+library (spatialEco)
+library(rgdal)
+
+####Read in the polygons within 500m of each site
+
+Poly<-readOGR(dsn="C:\\Users\\Nathan\\Desktop\\Gopher\\Survey Design",layer="Site_Polygons_500m")
+
+plot(Poly)
+
+
+##Read in the CTAP files
+
+CTAP<-readOGR(dsn="C:\\Users\\Nathan\\Desktop\\Gopher\\Survey Design",layer="CTAP_withinRange_Bounded")
+
+points(CTAP,pch=14,col="red")
+
+
+##Read in the Random files
+
+Rand<-readOGR(dsn="C:\\Users\\Nathan\\Desktop\\Gopher\\Survey Design\\Sites",layer="Final_Try")
+
+##has 3 sets of coordinates, so need to restrict it to only have xy, not xyz
+
+Rand_Try<-SpatialPointsDataFrame(coordinates(Rand)[,1:2],Rand@data)
+
+
+###Create 4 transect sets for CTAP
+##.00107 is about 100m
+
+CTAP_1<-sampleTransect(jitter.points(CTAP,.001),
+	min.length=.00107,max.length=.00107,bbox=Poly,mask=Poly)
+CTAP_2<-sampleTransect(jitter.points(CTAP,.001),
+	min.length=.00107,max.length=.00107,bbox=Poly,mask=Poly)
+CTAP_3<-sampleTransect(jitter.points(CTAP,.001),
+	min.length=.00107,max.length=.00107,bbox=Poly,mask=Poly)
+CTAP_4<-sampleTransect(jitter.points(CTAP,.001),
+	min.length=.00107,max.length=.00107,bbox=Poly,mask=Poly)
+
+###Create 4 transect stes for Random points
+
+Rand_1<-sampleTransect(jitter.points(Rand_Try,.001),
+	min.length=.00107,max.length=.00107,bbox=Poly,mask=Poly)
+Rand_2<-sampleTransect(jitter.points(Rand_Try,.001),
+	min.length=.00107,max.length=.00107,bbox=Poly,mask=Poly)
+Rand_3<-sampleTransect(jitter.points(Rand_Try,.001),
+	min.length=.00107,max.length=.00107,bbox=Poly,mask=Poly)
+Rand_4<-sampleTransect(jitter.points(Rand_Try,.001),
+	min.length=.00107,max.length=.00107,bbox=Poly,mask=Poly)
+
+##Rename the ID labels for each field
+
+for(i in 1:length(CTAP_1$transects@data$IDS)){
+	CTAP_1$transects@data$IDS[i]<-paste0(CTAP_1$transects@data$IDS[i],"_A")
+	CTAP_2$transects@data$IDS[i]<-paste0(CTAP_2$transects@data$IDS[i],"_B")
+	CTAP_3$transects@data$IDS[i]<-paste0(CTAP_3$transects@data$IDS[i],"_C")
+	CTAP_4$transects@data$IDS[i]<-paste0(CTAP_4$transects@data$IDS[i],"_D")
+}
+
+for(i in 1:length(Rand_1$transects@data$IDS)){
+	Rand_1$transects@data$OID_[i]<-paste0(Rand_1$transects@data$IDS_[i],"_A")
+	Rand_2$transects@data$IDS[i]<-paste0(Rand_2$transects@data$IDS[i],"_B")
+	Rand_3$transects@data$IDS[i]<-paste0(Rand_3$transects@data$IDS[i],"_C")
+	Rand_4$transects@data$IDS[i]<-paste0(Rand_4$transects@data$IDS[i],"_D")
+}
+
+##Rename the column names of the transects
+
+names(CTAP_1$transects)<-"CTAP_A"
+names(CTAP_2$transects)<-"CTAP_B"
+names(CTAP_3$transects)<-"CTAP_C"
+names(CTAP_4$transects)<-"CTAP_D"
+
+names(Rand_1$transects)<-"Rand_A"
+names(Rand_2$transects)<-"Rand_B"
+names(Rand_3$transects)<-"Rand_C"
+names(Rand_4$transects)<-"Rand_D"
+
+##Write transects to file
+
+writeOGR(CTAP_1$transects,dsn="C:\\Users\\Nathan\\Desktop\\Gopher\\Survey Design",layer="CTAP_1_Transects",driver="ESRI Shapefile",overwrite=TRUE)
+writeOGR(CTAP_2$transects,dsn="C:\\Users\\Nathan\\Desktop\\Gopher\\Survey Design",layer="CTAP_2_Transects",driver="ESRI Shapefile",overwrite=TRUE)
+writeOGR(CTAP_3$transects,dsn="C:\\Users\\Nathan\\Desktop\\Gopher\\Survey Design",layer="CTAP_3_Transects",driver="ESRI Shapefile",overwrite=TRUE)
+writeOGR(CTAP_4$transects,dsn="C:\\Users\\Nathan\\Desktop\\Gopher\\Survey Design",layer="CTAP_4_Transects",driver="ESRI Shapefile",overwrite=TRUE)
+
+
+writeOGR(Rand_1$transects,dsn="C:\\Users\\Nathan\\Desktop\\Gopher\\Survey Design",layer="Rand_1_Transects",driver="ESRI Shapefile",overwrite=TRUE)
+writeOGR(Rand_2$transects,dsn="C:\\Users\\Nathan\\Desktop\\Gopher\\Survey Design",layer="Rand_2_Transects",driver="ESRI Shapefile",overwrite=TRUE)
+writeOGR(Rand_3$transects,dsn="C:\\Users\\Nathan\\Desktop\\Gopher\\Survey Design",layer="Rand_3_Transects",driver="ESRI Shapefile",overwrite=TRUE)
+writeOGR(Rand_4$transects,dsn="C:\\Users\\Nathan\\Desktop\\Gopher\\Survey Design",layer="Rand_4_Transects",driver="ESRI Shapefile",overwrite=TRUE)
+
+
+###Will have to reposition transects in ArcMap to ensure that they overlap suitable habitat
+
+
