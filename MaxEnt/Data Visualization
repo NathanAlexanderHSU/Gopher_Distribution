@@ -136,3 +136,22 @@ ggplot(data=Occurrences, aes(x=Year,y=Count)) +
   xlab("Year") + ylab("Frequeny") + ggtitle("Recorded Geomys Occurrences")+
   theme(plot.title = element_text(hjust = 0.5))
 
+rast_fifth[rast_fifth<min(Values_fifth)] <- NA
+plot(rast_fifth, add=TRUE)
+points(all.pts)
+writeRaster(rast_fifth,"C://Users//Nathan//Desktop//Min_Thresh_fifth.asc")
+(Values_fifth)
+
+
+
+####USE Smallest Resolution
+rast_stand<-raster(choose.files())
+plot(rast_stand)
+
+all.pts<-readOGR(dsn="C:/Users/Nathan/Desktop/Gopher/INHS_GBIF_combined",layer="GBIF_INHS_post1950_true")
+Values_stand<-extract(rast_stand, all.pts)
+
+rast_stand[rast_stand<min(Values_stand)]<-NA
+plot(rast_stand)
+points(all.pts)
+writeRaster(rast_stand,"C://Users//Nathan//Desktop//Min_Thresh_stand.asc")
