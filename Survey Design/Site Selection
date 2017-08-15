@@ -1,0 +1,240 @@
+
+##CTAP sites##
+
+CTAP<-read.csv(choose.files())
+
+colnames(CTAP)
+CTAPcoords <- cbind(CTAP[6],CTAP[5])
+
+CTAPspdf <- SpatialPointsDataFrame(coords = CTAPcoords, data = CTAP,
+                               proj4string = CRS("+proj=longlat +datum=WGS84 +ellps=WGS84 +towgs84=0,0,0"))
+plot(rast_stand)
+points(CTAPspdf,pch=17)
+
+Rast_poly<-rasterToPolygons(rast_stand,dissolve=TRUE)
+plot(Rast_poly)
+CTAP_subset<-crop(CTAPspdf,Rast_poly)
+
+plot(rast_stand)
+points(CTAP_subset,pch=17,col="red")
+write.csv(CTAP_subset,"C:/Users/Nathan/Desktop/CTAP_sites_withinRegion.csv")
+
+Land_Cover<-raster("C:\\Users\\Nathan\\Desktop\\Gopher\\Environmental Shapefiles\\2016_30m_cdls\\Vegetation_84.tif")
+
+dev.new()
+Land_Cover
+plot(Land_Cover)
+colnames(Land_Cover)
+Land_Sub<-crop(Land_Cover,rast_stand)
+
+plot(Land_Sub)
+High_Res_hab<-resample(rast_stand,Land_Sub)
+plot(High_Res_hab)
+Land_Sub<-mask(Land_Sub,High_Res_hab)
+plot(Land_Sub)
+points(para$locs,pch=17,col="red")
+points(CTAP_subset,pch=17)
+barplot(Land_Sub)
+
+
+##Land_Sub subsetting
+
+##Remove open water
+#74 is Open Water
+Land_Sub1<-Land_Sub
+
+############################
+##If want to omit/select specific layers
+
+#Land_Sub1[Land_Sub==74]<-NA
+
+##Remove High Development
+#Land_Sub1[Land_Sub==79]<-NA
+
+
+#Subset crops with yearly plowing-lower gopher presences
+#corn<-reclassify(Land_Sub>2,NA)
+#soy<-reclassify(Land_Sub!=6,NA)
+
+plot(soy)
+plot(corn)
+##Remove Corn and Soy from the overall layer
+#Land_Sub1[Land_Sub==2]<-NA #remove corn
+#Land_Sub1[Land_Sub==6]<-NA #remove soy
+###########################################
+
+
+##subset by CTAP requirements
+	#CTAP classifies from Land Cover of Illinois database:
+		#pastures
+		#hayfields
+		#airfields
+		#parks
+		#cemeteries
+		#abandoned fields
+		#grassland strips along roads
+		#native prairie remnants
+
+	#CTAP sites are a munimum area of 500m2 at least 10m width
+	#<50% shrub cover
+	#<50% canopy covers
+
+#using the 2016 data source from the Dept of Agriculture
+
+		
+		#29-Alfalfa
+		#30-Other Hay/Non-Alfalfa
+		#50-Clover/Wildflowers
+		#51-Sod/Grass Seed
+		#52-Switchgrass
+		#53-Fallow/Idle Cropland
+		#76-Developed/Open Space
+		#77-Developed/Low intensity
+		#83-Grassland/Pasture
+plot(Land_Sub)
+
+alfalfa<-Land_Sub
+alfalfa[alfalfa!=29]<-NA
+
+hay<-Land_Sub
+hay[hay!=30]<-NA
+
+clover<-Land_Sub
+clover[clover!=50]<-NA
+
+sod<-Land_Sub
+sod[sod!=51]<-NA
+
+switch<-Land_Sub
+switch[switch!=52]<-NA
+
+fallow<-Land_Sub
+fallow[fallow!=53]<-NA
+
+dev_open<-Land_Sub
+dev_open[dev_open!=76]<-NA
+
+dev_low<-Land_Sub
+dev_low[dev_low!=77]<-NA
+
+pasture<-Land_Sub
+pasture[pasture!=83]<-NA
+
+Potential_Hab<-merge(alfalfa,hay,clover,sod,switch,fallow,dev_open,dev_low,pasture)
+plot(Potential_Hab)
+
+#check to ensure all worked
+Potential_Hab
+plot(Potential_Hab)
+plot(alfalfa)
+writeRaster(Potential_Hab,"C:\\Users\\Nathan\\Desktop\\Gopher\\Environmental Shapefiles\\2016_30m_cdls\\CTAP_suitable_landcover.tif")
+writeRaster(Land_Sub,"C:\\Users\\Nathan\\Desktop\\Gopher\\Environmental Shapefiles\\2016_30m_cdls\\Veg_Subsample_Restricted.tif")
+
+
+
+###Random Points##
+createpops <- function(n, mindist, landscape)
+{  
+  
+  minx <- extent(landscape)@xmin #get the min and max  coordinates
+  miny <- extent(landscape)@ymin #coordinates of the landscape
+  maxx <- extent(landscape)@xmax
+  maxy <- extent(landscape)@ymax
+  
+  cc<- 1
+  coords <- data.frame(lx=NA, ly=NA)
+  while (cc<= n )  #repeat until you have found n locations
+  {
+    draw=FALSE
+    while (draw==FALSE)
+    {
+      x <- runif(1,minx,maxx)
+      y <- runif(1,miny,maxy)
+      if (landscape[cellFromXY(landscape,c(x,y) )]==0)  draw=TRUE #check if in the habitat
+    }
+    
+    coords[cc,] <- c(x,y)
+    
+    if (nrow(coords)>1) d <- min(dist(coords)) else d <- mindist+1 
+    
+    if (d > mindist) cc <- cc+1  #take the location only if distance is larger than mindist
+  }
+  return( as.matrix( coords))
+}
+
+#######
+Binary_land<-Potential_Hab
+Binary_land[Binary_land>0]<-0
+Binary_land[is.na(Binary_land)]<-1
+plot(Binary_land)
+barplot(Binary_land)
+
+  para<- list()
+  #Define populations (dynamics)
+  para$n.pops=100# set the number of unique locations for the populations
+  para$n.ind=1 # set the number of individuals per population
+  
+  
+  #Define cost distance method
+  para$method <- "commute" #commute is akin to Circuit-based analysis (Fouss et al. 2006)
+  para$NN <- 4  #number of neighbours for the cost distance method ### I think this is direction moveable through cells-I set it to 8
+  
+  
+  #Define x and y locations
+  #mindist-each cell=30m .3*50 = 15km apart?
+	para$locs <-createpops(n=para$n.pops, mindist = 0.5, landscape = Binary_land)  
+plot(Binary_land)
+points(para$locs,pch=17, col='black')
+points(CTAP_subset,pch=17,col='red')
+write.csv(para$locs,"C:/Users/Nathan/Desktop/Gopher/Survey Design/RandomLocs.csv")
+
+
+Veg_Class<-read.csv(choose.files()) #choose numeric/Type association
+head(Veg_Class)
+colnames(Veg_Class)<-c("Numeric","Veg")
+dev.new()
+plot(corn)
+plot(High_Res_hab)
+Veg_Type<-data.frame(extract(Land_Sub, para$locs))
+colnames(Veg_Type)<-"Numeric"
+head(Veg_Type)
+Rand_veg<-merge(Veg_Type,Veg_Class,by="Numeric")
+head(Rand_veg)
+table(Veg_Type)
+
+
+require(ggplot2)
+Veg<-na.omit(melt(Rand_veg,id="Veg"))
+dim(Veg)
+
+ggplot(data = Veg, aes(x=Veg,y="value")) + geom_bar(stat='identity', fill="darkred")+
+xlab("Vegetation") + ylab("Frequency") + ggtitle("Habitat of Random Points")+
+guides(fill=guide_legend(title=" "))+ theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+
+CTAP_Veg<-data.frame(extract(Land_Sub,CTAP_subset))
+plot((table(CTAP_Veg)))
+head(CTAP_Veg)
+colnames(CTAP_Veg)<-c("Numeric")
+
+head(Veg_Type)
+CTAP_Rand_veg<-merge(CTAP_Veg,Veg_Class,by="Numeric")
+head(Rand_veg)
+table(Veg_Type)
+plot(table((Rand_veg)))
+
+High_Res_hab
+plot(High_Res_hab)
+points(CTAP_subset)
+CTAP_Veg<-na.omit(melt(CTAP_Rand_veg,id="Veg"))
+head(Veg)
+
+ggplot(data = CTAP_Veg, aes(x=Veg, y="value")) + geom_bar(stat='identity', fill="darkred")+
+xlab("Vegetation") + ylab("Frequency") + ggtitle("Habitat of CTAP Points")+
+guides(fill=guide_legend(title=" "))+ theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+
+dim(Veg)
+count(Land_Sub)
+plot(Land_Sub)
+points(CTAP_subset)
