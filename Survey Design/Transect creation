@@ -60,8 +60,6 @@ for (i in seq_along(l)) {
 
 SL_tess<-(SpatialLines(l))
 row.names(SL_tess)
-df <- data.frame(len = sapply(1:length(Sl), function(i) gLength(Sl[i, ])))
-rownames(df) <- sapply(1:length(Sl), function(i) Sl@lines[[i]]@ID)
 
 
 ## SpatialLines to SpatialLinesDataFrame
@@ -96,6 +94,8 @@ writeOGR(Sldf_tess,dsn="C:\\Users\\Nathan\\Desktop\\Gopher\\Survey Design",layer
 Poly<-readOGR(dsn="C:\\Users\\Nathan\\Desktop\\Gopher\\Survey Design\\Sites",layer="Aggregated_Site_VoronoiClip")
 
 plot(Poly)
+plot(Sldf_tess,add=TRUE,col="red")
+
 
 ##.00107 decimal degrees is about 100m
 
@@ -103,22 +103,16 @@ plot(Poly)
 ###Calculate centroids of polygons##########
 ############################################
 centroids <- SpatialPointsDataFrame(coords=getSpPPolygonsLabptSlots(Poly),data=Poly@data)
-Centroid_spdf<-
-Poly@data
-class(Poly)
-class(Poly@data$Shape_Area)
-Area<-unlist(Poly@data$Shape_Area)
-Area<-data.frame(Area)
-sort(Area)
-Poly
-Points<-sample.poly(Poly,n=4,type="stratified")
-Points
-points(Points,col="blue",pch=17)
-Points_spdf<-SpatialPointsDataFrame(Points,data=data.frame(1:length(Points)))
+proj4string(centroids)<-proj4string(Poly)
+
+points_strat<-sample.poly(Poly,n=4,type="regular")
+points(points_strat,col="red")
+
+Points_spdf<-SpatialPointsDataFrame(points_strat,data=data.frame(1:length(points_strat)))
 
 Transects_strat<-sampleTransect(Points_spdf,min.length=.00107,max.length=.00107,bbox=Poly,mask=Poly)
 
-writeOGR(Transects_strat$transects,dsn="C:\\Users\\Nathan\\Desktop\\Gopher\\Survey Design",layer="Stratified_Transects",driver="ESRI Shapefile",overwrite=TRUE)
+writeOGR(Transects_strat$transects,dsn="C:\\Users\\Nathan\\Desktop\\Gopher\\Survey Design",layer="Regular_Transects",driver="ESRI Shapefile",overwrite=TRUE)
 
 
 #############################################
