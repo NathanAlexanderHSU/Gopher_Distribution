@@ -8,6 +8,7 @@ library (spatialEco)
 library(rgdal)
 library(rgeos)
 library(maptools)
+library(GISTools)
 
 
 
@@ -104,19 +105,67 @@ plot(Sldf_tess,add=TRUE,col="red")
 ############################################
 centroids <- SpatialPointsDataFrame(coords=getSpPPolygonsLabptSlots(Poly),data=Poly@data)
 proj4string(centroids)<-proj4string(Poly)
+points(centroids,pch=17)
+length(Poly)
+centroids
+
+for(i in 1:length(centroids)){
+Centroid_1<-sampleTransect(jitter.points(centroids,.001),
+	min.length=.00107,max.length=.00107,bbox=Poly,mask=Poly)
+Centroid_2<-sampleTransect(jitter.points(centroids,.001),
+	min.length=.00107,max.length=.00107,bbox=Poly,mask=Poly)
+Centroid_3<-sampleTransect(jitter.points(centroids,.001),
+	min.length=.00107,max.length=.00107,bbox=Poly,mask=Poly)
+Centroid_4<-sampleTransect(jitter.points(centroids,.001),
+	min.length=.00107,max.length=.00107,bbox=Poly,mask=Poly)
+}
 
 
-###stratified command does not work well with no rectangular objects. attempt "regular" or "random"
-points_strat<-sample.poly(Poly,n=4,type="regular")
+writeOGR(Centroid_1$transects,dsn="C:\\Users\\Nathan\\Desktop\\Gopher\\Survey Design",layer="Centroid_1_Transects",driver="ESRI Shapefile",overwrite=TRUE)
+writeOGR(Centroid_2$transects,dsn="C:\\Users\\Nathan\\Desktop\\Gopher\\Survey Design",layer="Centroid_2_Transects",driver="ESRI Shapefile",overwrite=TRUE)
+writeOGR(Centroid_3$transects,dsn="C:\\Users\\Nathan\\Desktop\\Gopher\\Survey Design",layer="Centroid_3_Transects",driver="ESRI Shapefile",overwrite=TRUE)
+writeOGR(Centroid_4$transects,dsn="C:\\Users\\Nathan\\Desktop\\Gopher\\Survey Design",layer="Centroid_4_Transects",driver="ESRI Shapefile",overwrite=TRUE)
+
+
+
+
+
+################################################
+############ Transects within Polygons##########
+################################################
+
+Poly1<-Poly[Poly@data$OBJECTID_1[1], ]
+Poly_strat<-sample.poly(Poly1,n=5,type="stratified")
+points_strat<-Poly_strat
+
+for(i in 2:length(Poly)){
+Poly1<-Poly[Poly@data$OBJECTID_1[i], ]
+Poly_strat<-sample.poly(Poly1,n=5,type="stratified")
+points_strat<-spRbind(points_strat,Poly_strat)
+
+}
+i
+plot(Poly[Poly@data$OBJECTID_1[11], ])
+plot(Poly1)
+a<-(sample.poly(Poly1,n=7,type="stratified"))
+coordinates(a)
+coordinatespoints(sample.poly(Poly1,n=4,type="stratified")))
+
+plot(points_strat)
+points_strat<-sample.poly(Poly,n=4,type="stratified")
+plot(points_strat,add=TRUE,pch=17,col="blue")
 points(points_strat,col="red")
 
 Points_spdf<-SpatialPointsDataFrame(points_strat,data=data.frame(1:length(points_strat)))
 
 Transects_strat<-sampleTransect(Points_spdf,min.length=.00107,max.length=.00107,bbox=Poly,mask=Poly)
 
-writeOGR(Transects_strat$transects,dsn="C:\\Users\\Nathan\\Desktop\\Gopher\\Survey Design",layer="Regular_Transects",driver="ESRI Shapefile",overwrite=TRUE)
+writeOGR(Transects_strat$transects,dsn="C:\\Users\\Nathan\\Desktop\\Gopher\\Survey Design",layer="NonAligned_Transects",driver="ESRI Shapefile",overwrite=TRUE)
 
 
+Sample_grid<-makegrid(Poly, n = 4, nsig = 2, offset = rep(0.5, nrow(Poly)),
+	pretty = TRUE)
+plot(Sample_grid)
 #############################################
 ###Create transects based on site placement##
 #############################################
