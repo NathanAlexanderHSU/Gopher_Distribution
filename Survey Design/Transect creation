@@ -105,6 +105,8 @@ plot(Sldf_tess,add=TRUE,col="red")
 centroids <- SpatialPointsDataFrame(coords=getSpPPolygonsLabptSlots(Poly),data=Poly@data)
 proj4string(centroids)<-proj4string(Poly)
 
+
+###stratified command does not work well with no rectangular objects. attempt "regular" or "random"
 points_strat<-sample.poly(Poly,n=4,type="regular")
 points(points_strat,col="red")
 
