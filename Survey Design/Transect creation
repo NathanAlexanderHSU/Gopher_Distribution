@@ -1,15 +1,27 @@
 install.packages("spatialEco")
+install.packages("deldir", dependencies=TRUE)
 
+library(deldir)
 library(sp)
 library(raster)
 library (spatialEco)
 library(rgdal)
+library(rgeos)
+library(maptools)
 
-####Read in the polygons within 500m of each site
 
-Poly<-readOGR(dsn="C:\\Users\\Nathan\\Desktop\\Gopher\\Survey Design",layer="Site_Polygons_500m")
 
-plot(Poly)
+
+
+############################################
+#########Create Voronoi Tessellation########
+############################################
+
+##Here, I create a voronoi tessellation around the combined sites.
+##This will be used as a barrier layer when aggregating suitable habitat
+##in ArcMap. This will allow sites to have and independent site area
+##so that we can create a stratified sampling design.
+
 
 
 ##Read in the CTAP files
@@ -27,9 +39,91 @@ Rand<-readOGR(dsn="C:\\Users\\Nathan\\Desktop\\Gopher\\Survey Design\\Sites",lay
 
 Rand_Try<-SpatialPointsDataFrame(coordinates(Rand)[,1:2],Rand@data)
 
+site_coords<-rbind(coordinates(CTAP),coordinates(Rand_Try))
+plot(site_coords)
+vtess <- deldir(site_coords[,1],site_coords[,2])
+plot(vtess)
+
+plot(vtess, wlines="tess", wpoints="none", number=FALSE, lty=1)
+names(vtess)
+
+names(vtess)
+
+begin.coord <- data.frame(lon=vtess$dirsgs[,1], lat=vtess$dirsgs[,2])
+end.coord <- data.frame(lon=vtess$dirsgs[,3], lat=vtess$dirsgs[,4])
+
+l <- vector("list", nrow(begin.coord))
+
+for (i in seq_along(l)) {
+    l[[i]] <- Lines(list(Line(rbind(begin.coord[i, ], end.coord[i,]))), as.character(i))
+}
+
+SL_tess<-(SpatialLines(l))
+row.names(SL_tess)
+df <- data.frame(len = sapply(1:length(Sl), function(i) gLength(Sl[i, ])))
+rownames(df) <- sapply(1:length(Sl), function(i) Sl@lines[[i]]@ID)
+
+
+## SpatialLines to SpatialLinesDataFrame
+Sldf_tess <- SpatialLinesDataFrame(SL_tess, data = data.frame(row.names(SL_tess),"TESS"))
+
+
+
+writeOGR(Sldf_tess,dsn="C:\\Users\\Nathan\\Desktop\\Gopher\\Survey Design",layer="Voronoi_Barriers",driver="ESRI Shapefile",overwrite=TRUE)
+
+#### Now separte suitable polygons by the tessellation
+##in ArcMap 10.5, aggregate suitable habitats that are within 
+#### when aggregating the suitable habitat polygons
+
+#ArcMap commands:
+	#SelectbyLocation CTAP suitable sites 500m from each CTAP or random sites
+		#Relationship=INTERSECT
+	#Feature to Polygon, put in "Voronoi Barriers"
+	#Aggregate Polygons 
+		#1 km
+		#Min Area 4000 sq meters
+		#min hole size= 0 sq m
+		#preserve orthogonal shape
+	#Clip Aggregated Polygons by the Voronoi Polygons to create unique areas
+
 
 ###Create 4 transect sets for CTAP
-##.00107 is about 100m
+
+
+####Read in the polygons within 500m of each site
+
+
+Poly<-readOGR(dsn="C:\\Users\\Nathan\\Desktop\\Gopher\\Survey Design\\Sites",layer="Aggregated_Site_VoronoiClip")
+
+plot(Poly)
+
+##.00107 decimal degrees is about 100m
+
+############################################
+###Calculate centroids of polygons##########
+############################################
+centroids <- SpatialPointsDataFrame(coords=getSpPPolygonsLabptSlots(Poly),data=Poly@data)
+Centroid_spdf<-
+Poly@data
+class(Poly)
+class(Poly@data$Shape_Area)
+Area<-unlist(Poly@data$Shape_Area)
+Area<-data.frame(Area)
+sort(Area)
+Poly
+Points<-sample.poly(Poly,n=4,type="stratified")
+Points
+points(Points,col="blue",pch=17)
+Points_spdf<-SpatialPointsDataFrame(Points,data=data.frame(1:length(Points)))
+
+Transects_strat<-sampleTransect(Points_spdf,min.length=.00107,max.length=.00107,bbox=Poly,mask=Poly)
+
+writeOGR(Transects_strat$transects,dsn="C:\\Users\\Nathan\\Desktop\\Gopher\\Survey Design",layer="Stratified_Transects",driver="ESRI Shapefile",overwrite=TRUE)
+
+
+#############################################
+###Create transects based on site placement##
+#############################################
 
 CTAP_1<-sampleTransect(jitter.points(CTAP,.001),
 	min.length=.00107,max.length=.00107,bbox=Poly,mask=Poly)
@@ -97,5 +191,3 @@ writeOGR(Rand_4$transects,dsn="C:\\Users\\Nathan\\Desktop\\Gopher\\Survey Design
 ### Will also have to validate names going forward. Converting KMZ file to shapefile dissociated site numbering
 
 ##may need to alter labeling of Rand_transects. Seems to be one less than the gdb layer file
-
-
