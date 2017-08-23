@@ -1,5 +1,6 @@
-install.packages("spatialEco")
+nstall.packages("spatialEco")
 install.packages("deldir", dependencies=TRUE)
+install.packages("infline")
 
 library(deldir)
 library(sp)
@@ -89,10 +90,10 @@ writeOGR(Sldf_tess,dsn="C:\\Users\\Nathan\\Desktop\\Gopher\\Survey Design",layer
 ###Create 4 transect sets for CTAP
 
 
-####Read in the polygons within 500m of each site
+####Read in the polygons within 500m of each hand designated sites
 
 
-Poly<-readOGR(dsn="C:\\Users\\Nathan\\Desktop\\Gopher\\Survey Design\\Sites",layer="Aggregated_Site_VoronoiClip")
+Poly<-readOGR(dsn="C:\\Users\\Nathan\\Desktop\\Gopher\\Survey Design\\Sites",layer="Patch_Hand_Shape")
 
 plot(Poly)
 plot(Sldf_tess,add=TRUE,col="red")
@@ -133,35 +134,57 @@ writeOGR(Centroid_4$transects,dsn="C:\\Users\\Nathan\\Desktop\\Gopher\\Survey De
 ################################################
 ############ Transects within Polygons##########
 ################################################
-
-Poly1<-Poly[Poly@data$OBJECTID_1[1], ]
-Poly_strat<-sample.poly(Poly1,n=5,type="stratified")
+Poly
+Poly1<-Poly[Poly@data$OBJECTID[1], ]
+Poly_strat<-sample.poly(Poly1,n=4,type="stratified")
 points_strat<-Poly_strat
 
 for(i in 2:length(Poly)){
-Poly1<-Poly[Poly@data$OBJECTID_1[i], ]
-Poly_strat<-sample.poly(Poly1,n=5,type="stratified")
+Poly1<-Poly[Poly@data$OBJECTID[i], ]
+Poly_strat<-sample.poly(Poly1,n=4,type="stratified")
 points_strat<-spRbind(points_strat,Poly_strat)
 
 }
 i
-plot(Poly[Poly@data$OBJECTID_1[11], ])
+plot(Poly[Poly@data$OBJECTID1[11], ])
 plot(Poly1)
 a<-(sample.poly(Poly1,n=7,type="stratified"))
 coordinates(a)
 coordinatespoints(sample.poly(Poly1,n=4,type="stratified")))
 
+plot(Poly)
+Poly
+
 plot(points_strat)
 points_strat<-sample.poly(Poly,n=4,type="stratified")
 plot(points_strat,add=TRUE,pch=17,col="blue")
 points(points_strat,col="red")
+plot(Transects_strat$transects,add=TRUE)
 
 Points_spdf<-SpatialPointsDataFrame(points_strat,data=data.frame(1:length(points_strat)))
+writeOGR(Points_spdf,dsn="C:\\Users\\Nathan\\Desktop\\Gopher\\Survey Design",layer="Transect_midpoints",driver="ESRI Shapefile")
 
-Transects_strat<-sampleTransect(Points_spdf,min.length=.00107,max.length=.00107,bbox=Poly,mask=Poly)
+Transects_strat<-sampleTransect(Points_spdf,min.length=0.000535,max.length=0.000535,bbox=Poly,mask=Poly)
 
-writeOGR(Transects_strat$transects,dsn="C:\\Users\\Nathan\\Desktop\\Gopher\\Survey Design",layer="NonAligned_Transects",driver="ESRI Shapefile",overwrite=TRUE)
+##############################################################################
+#########Reflect the transects around the regularly distributed midpoints#####
+##############################################################################
 
+Transects_2<-elide(Transects_strat$transects[Transects_strat$transects@data$IDS[1],],rotate=180,center=cbind(coordinates(Points_spdf)[1,1:2]))
+
+for(i in 2:length(Transects_strat$transects@data$IDS)){
+Transects_3<-elide(Transects_strat$transects[Transects_strat$transects@data$IDS[i],],rotate=180,center=cbind(coordinates(Points_spdf)[i,1:2]))
+Transects_2<-spRbind(Transects_2,Transects_3)
+}
+Transects_2
+
+writeOGR(Transects_strat$transects,dsn="C:\\Users\\Nathan\\Desktop\\Gopher\\Survey Design",layer="Half_transects",driver="ESRI Shapefile",overwrite=TRUE)
+writeOGR(Transects_2,dsn="C:\\Users\\Nathan\\Desktop\\Gopher\\Survey Design",layer="Half_transects_2",driver="ESRI Shapefile",overwrite=TRUE)
+
+
+##########################################
+#merge the two half transects in ArcMap###
+##########################################
 
 Sample_grid<-makegrid(Poly, n = 4, nsig = 2, offset = rep(0.5, nrow(Poly)),
 	pretty = TRUE)
