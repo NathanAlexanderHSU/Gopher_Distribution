@@ -59,10 +59,10 @@ Gopher_site_variables<-cbind(Gopher_site,variables)
 
 ###Generate detection matrix
 
-##sites with presences: CTAP 69, CTAP 21, Rand 40
-sites<-data.frame(rbind("CTAP 69", "CTAP 21", "Random 40"))
+##sites with presences: CTAP 69, CTAP 21, Rand 40,Rand 114, Rand 89
+sites<-data.frame(rbind("CTAP 69", "CTAP 21", "Random 40","Random 114","Random 89"))
 
-Pres<-matrix(c(1,1,1,1,1,1,1,1,0,1,0,0),ncol=4,byrow=TRUE)
+Pres<-matrix(c(1,1,1,1,1,1,1,1,0,1,0,0,1,1,0,0,0,1,0,0),ncol=4,byrow=TRUE)
 Pres_site<-cbind(sites,Pres)
 colnames(Pres_site)<-c("Type_ID","S1","S2","S3","S4")
 PA_variable<-merge(Pres_site,Gopher_site_variables,by="Type_ID",all=TRUE)
