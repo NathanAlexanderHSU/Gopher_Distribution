@@ -73,10 +73,16 @@ PA_variable[is.na(PA_variable)]<-0
 ####Preparing PA data set
 y.so<-PA_variable[,2:5]
 J.so=ncol(y.so)
-so.occupancy<-PA_variable$slope
+so.occupancy<-cbind(PA_variable$slope,PA_variable$bio11)
+
+##need to name the columns if having more than 1 predictor
+
+colnames(so.occupancy)<-c("slope","bio11")
 X.so=cbind(rep(1, nrow(as.matrix(so.occupancy))), so.occupancy)
 
-so.detection<-PA_variable$bio1
+so.detection<-cbind(PA_variable$bio1,PA_variable$bio2)
+colnames(so.detection)<-c("bio1","bio2")
+
 W.so = array(dim=c(nrow(as.matrix(so.detection)), J.so, 2))
 W.so[,,1] = 1
 W.so[,,2] = so.detection# if it changes
@@ -99,16 +105,12 @@ points(cbind(sp.occur_2010$lon,sp.occur_2010$lat),pch=17,col="red")
 pb_variables<-extract(predictors,cbind(sp.occur_2010$lon,sp.occur_2010$lat))
 sp.occur_2010_var<-cbind(sp.occur_2010,pb_variables)
 head(sp.occur_2010_var)
-
-s.occupancy<-predictors[[2]]
-dev.new()
-plot(s.occupancy)
+names(predictors)
+s.occupancy<-stack(predictors[[11]],predictors[[21]])
 X.back = cbind(rep(1, ncell(s.occupancy)), values(s.occupancy))
 colnames(X.back)=c("",names(s.occupancy))
-
-s.detection<-predictors[[1]]
-dev.new()
-plot(s.detection)
+head(X.back)
+s.detection<-stack(predictors[[1]],predictors[[2]])
 
 W.back = cbind(rep(1, ncell(s.detection)), values(s.detection))
 colnames(W.back)=c("",names(s.detection))
@@ -123,12 +125,12 @@ area.back = rep((xres(s.occupancy)/1000)*(yres(s.occupancy)/1000), nrow(X.back))
 s.area=area.back*nrow(X.back) #study area
 
 
-pb.occupancy<-sp.occur_2010_var$bio2
-
+pb.occupancy<-cbind(sp.occur_2010_var$bio11,sp.occur_2010_var$slope)
+colnames(pb.occupancy)<-c("bio11","slope")
 X.po=cbind(rep(1, nrow(as.matrix(pb.occupancy))), pb.occupancy)
 
-pb.detection<-sp.occur_2010_var$bio1
-pb.detection
+pb.detection<-cbind(sp.occur_2010_var$bio1,sp.occur_2010_var$bio2)
+colnames(pb.detection)<-c("bio1","bio2")
 W.po=cbind(rep(1, nrow(as.matrix(pb.detection))), pb.detection)
 
 pb.fit=pb.ipp(X.po,W.po,X.back,W.back)
