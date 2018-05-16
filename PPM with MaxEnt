@@ -1,0 +1,515 @@
+install.packages("dismo")
+library (rgdal)
+library(dismo)
+
+require(raster)
+require(fields)
+require(mvtnorm)
+require(matrixStats)
+
+
+
+illinois<-readOGR(dsn="C:/Users/Nathan/Desktop/Gopher/Political Boundaries",layer="IL_BNDY_County_Py")
+plot(illinois)
+
+Gopher_site<-readOGR(dsn="C:/Users/Nathan/Desktop/Gopher/Survey Design/Sites",layer="Fall_2017_PA")
+
+############################################################################
+#######################Code that combined old and new sites#################
+############################################################################
+
+####need to add in additional survey sites###
+#Gopher_site<-readOGR(dsn="C:/Users/Nathan/Desktop/Gopher/Survey Design/Sites",layer="Site_withInfo")
+#Read in Additional Sites and combine Land Owner Response
+#Second_Survey<-readOGR(dsn="C:/Users/Nathan/Desktop/Gopher/Survey Design",layer="Reserve_Surveys_additional2017")
+#SS_dat<-read.csv("C:\\Users\\Nathan\\Desktop\\Gopher\\Survey Design\\Sites\\Reserve_Survey_additional2017Data.csv")
+#Second_Survey<-sp::merge(Second_Survey,SS_dat,by=c("OBJECTID","Type","ID","Type_ID"))
+#names(Second_Survey)<-names(Gopher_site)
+#Gopher_site<-rbind(Gopher_site,Second_Survey)
+#writeOGR(Gopher_site, dsn="C:/Users/Nathan/Desktop/Gopher/Survey Design/Sites",layer="Fall_2017_PA", driver="ESRI Shapefile")
+##############################################################################
+#######################End Combining site data################################
+##############################################################################
+
+##Predictor variables
+##elevation
+
+elev <- getData('alt', download=TRUE, country='USA', mask=TRUE)
+elev.48 <- elev[[1]]
+
+##Bioclim
+clim.W<-getData('worldclim',var='bio',res=2.5)
+clim<-crop(clim.W,illinois)
+
+##have to fix crs (switch to WGS 84) for illinois to mask
+
+crs(illinois)<-crs(clim)
+
+plot(illinois)
+
+cr.clim<-mask(clim,illinois)
+cr.elev<-crop(elev.48,illinois)
+cr.elev<-mask(cr.elev,illinois)
+plot(cr.elev)
+##soil
+
+soil<-readOGR(dsn="C:/Users/Nathan/Desktop/Gopher/Environmental Shapefiles/Soil_trial",layer="SSURGO_IL_Text1")
+plot(soil)
+r<-raster(ncol=ncol(cr.elev[[1]]),nrow=nrow(cr.elev[[1]]))
+soil_rast_re<-rasterize(soil,cr.elev,'texdesc')
+plot(cr.elev)
+
+land_use<-raster("C:/Users/Nathan/Desktop/Gopher/Environmental Shapefiles/c2016_30m_cdls_84.img")
+
+land_use_il<-crop(land_use,illinois)
+plot(land_use_il)
+land_use_il_re<-resample(land_use_il,cr.elev)
+land_use_il_re<-mask(land_use_il_re,illinois)
+cr.clim<-resample(cr.clim,cr.elev)
+
+cr.clim
+cr.elev
+land_use_il_re
+soil_rast_re
+compareRaster(soil_rast_re,land_use_il_re,cr.elev)
+
+
+##convert elevation to slope
+slope<-terrain(cr.elev,opt='slope',unit='degrees',neighbors=8)
+plot(slope)
+##select predictors
+predictors <- stack(cr.clim,cr.elev,slope,soil_rast_re,cr.elev,land_use_il_re)
+
+
+####combine Site Variables with PA dataset
+names(Gopher_site)
+Gopher_site$Type_ID
+coordinates(Gopher_site)[,1:2]
+variables<-extract(predictors,coordinates(Gopher_site)[,1:2])
+variables
+
+Gopher_site_variables<-cbind(Gopher_site,variables)
+
+Gopher_site_variables
+###Generate detection matrix
+
+
+#NEED TO ADD IN CTAP 72, CTAP 71, Rand 34, CTAP 73 ##
+##sites with presences: CTAP 69, CTAP 21, Rand 40,Rand 114, Rand 89
+sites<-data.frame(rbind("CTAP 69", "CTAP 21", "Random 40","Random 114","Random 89","CTAP 72","CTAP 71","Random 34", "CTAP 73"))
+
+Pres<-matrix(c(1,1,1,1,1,1,1,1,0,1,0,0,1,1,0,0,0,1,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1),ncol=4,byrow=TRUE)
+Pres_site<-cbind(sites,Pres)
+Pres_site
+colnames(Pres_site)<-c("Type_ID","S1","S2","S3","S4")
+PA_variable<-merge(Pres_site,Gopher_site_variables,by="Type_ID",all=TRUE)
+(PA_variable)
+points(PA_variable[1:9,41:42],col="red",pch=17)
+PA_variable[is.na(PA_variable)]<-0
+colnames(PA_variable)
+PA_variable
+####Preparing PA data set
+y.so<-PA_variable[,2:5]
+J.so=ncol(y.so)
+so.occupancy<-cbind(as.factor(PA_variable$layer),as.factor(PA_variable$c2016_30m_cdls_84))
+
+##need to name the columns if having more than 1 predictor
+
+colnames(so.occupancy)<-c("soil","land use")
+X.so=cbind(rep(1, nrow(as.data.frame(so.occupancy))), so.occupancy)
+head(X.so)
+so.detection<-cbind(PA_variable$slope)
+colnames(so.detection)<-c("slope")
+
+W.so = array(dim=c(nrow(as.matrix(so.detection)), J.so, 2))
+W.so[,,1] = 1
+W.so[,,2] = so.detection# if it changes
+so.fit=so.model(X.so,W.so,y.so)
+so.fit
+
+###if SE not reporting, due to recipCondNum.so>minrecipCondNum
+##SE is only calculated if the above is true.
+
+#########################
+###PB #####
+
+#Bluett
+library(exifr)
+library(dplyr)
+library(leaflet)
+setwd(choose.dir())
+files <- list.files()
+files
+dat <- read_exif(files)
+names(dat)
+
+Bluett_coords<-cbind(dat$FileName,dat$GPSLongitude,dat$GPSLatitude)
+Bluett_coords
+#remove the ones without a geotag
+Bluett_coords<-rbind(Bluett_coords[1:33,],Bluett_coords[40:50,],Bluett_coords[52:61,])
+
+plot(illinois)
+points(na.omit(Bluett_coords[,2:3]),pch=16,cex=1.2,col="blue")
+
+sp.occur <- gbif(genus='Geomys', species='bursarius', geo=TRUE,removeZeros=TRUE,ext=illinois)
+
+sp.occur_2010<-sp.occur[which(sp.occur$year>=2010),]
+class(sp.occur)
+Bluett_coords<-data.frame(Bluett_coords)
+points(cbind(sp.occur_2010$lon,sp.occur_2010$lat),pch=17,col="red")
+
+points(cbind(as.numeric(Bluett_coords[,2]),as.numeric(Bluett_coords[,3])),pch=17,col="blue")
+presence_only<-rbind(cbind(sp.occur_2010$lon,sp.occur_2010$lat),cbind(as.vector(Bluett_coords[,2]),as.vector(Bluett_coords[,3])))
+presence_only
+
+
+
+###need to truncate the coordinates from the Bluett Photos
+presence_only_x<-round(as.numeric(presence_only[,1]), digits = 6)
+presence_only_y<-round(as.numeric(presence_only[,2]), digits = 6)
+presence_only_rd<-cbind(presence_only_x,presence_only_y)
+pres_only_sp<-SpatialPoints(presence_only_rd)
+
+pb_variables<-extract(predictors,presence_only_rd)
+
+
+
+head(pb_variables)
+
+
+head(sp.occur_2010_var)
+
+
+names(predictors)
+s.occupancy
+s.occupancy<-stack(as.factor(predictors$layer),as.factor(predictors$c2016_30m_cdls_84))
+head(s.occupancy)
+X.back = cbind(rep(1, ncell(s.occupancy)), values(s.occupancy))
+
+colnames(X.back)=c("","soil","landuse")
+head(X.back)
+s.detection<-(predictors[[23]])
+
+W.back = cbind(rep(1, ncell(s.detection)), values(s.detection))
+colnames(W.back)=c("",names(s.detection))
+
+# remove all NA values
+tmp=X.back[complete.cases(X.back)&complete.cases(W.back),]
+W.back=W.back[complete.cases(X.back)&complete.cases(W.back),]
+X.back=tmp
+
+
+area.back = rep((xres(s.occupancy)/1000)*(yres(s.occupancy)/1000), nrow(X.back))# each cell
+s.area=area.back*nrow(X.back) #study area
+
+colnames(pb_variables)
+pb.occupancy<-cbind(as.factor(pb_variables[,22]),as.factor(pb_variables[,24]))
+colnames(pb.occupancy)<-c("soil","land use")
+X.po=cbind(rep(1, nrow(as.data.frame(pb.occupancy))), pb.occupancy)
+head(X.po)
+pb.detection<-cbind(pb_variables[,23])
+colnames(pb.detection)<-c("slope")
+W.po=cbind(rep(1, nrow(as.matrix(pb.detection))), pb.detection)
+
+pb.fit=pb.ipp(X.po,W.po,X.back,W.back)
+
+pb.fit
+
+#########################################
+####integrated model#####################
+#########################################
+
+pbso<-pbso.integrated(X.po, W.po,X.back, W.back,X.so,W.so,y.so)
+pbso
+coef(pbso)
+
+class(PBSO)<-glm
+class(PBSO)
+PBSO
+coef(PBSO)<-pbso$coefs
+plot(pbso)
+##########################################
+####Predicting model#####################
+
+predictors1<-na.omit(stack(predictors[[1]],predictors[[2]],predictors[[11]],predictors[[21]]))
+
+
+###########################################
+#########MAXENT############################
+###########################################
+
+install.packages("spatstat")
+install.packages("rgdal")
+install.packages("raster")
+install.packages("maptools")
+install.packages("rgeos")
+install.packages("rJava")
+install.packages("sp")
+install.packages("PresenceAbsence")
+install.packages("maxent")
+install.packages("dismo")
+install.packages("spThin")
+require(spatstat)
+require(rgdal)
+require(raster)
+require(maptools)
+require(rgeos)
+require(dismo)
+require(rJava)
+require(sp)
+require(PresenceAbsence)
+require(spThin)
+head(Gopher_site)
+
+### CTAP 69, CTAP 21, Rand 40,Rand 114, Rand 89
+
+##reading in and converting files from kml/shp. keeping this to do with inaturalist data
+#preserve_sites<-readOGR(dsn="C:\\Users\\Nathan\\Desktop\\Gopher\\Survey Design\\sites\\Preserve_sites_2.shp",layer="Preserve_sites_2")
+#writeOGR(preserve_sites,dsn="C:\\Users\\Nathan\\Desktop\\Gopher\\Survey Design\\KML Files\\preserveSites.gpx",dataset_options="GPX_USE_EXTENSIONS=yes",layer="preserveSites.gpx",driver="GPX")
+
+occ.pts<-SpatialPoints(rbind(coordinates(Gopher_site[which(Gopher_site$Type_ID=="CTAP 69"),]),
+						coordinates(Gopher_site[which(Gopher_site$Type_ID=="CTAP 21"),]),
+						coordinates(Gopher_site[which(Gopher_site$Type_ID=="Random 40"),]),
+						coordinates(Gopher_site[which(Gopher_site$Type_ID=="Random 114"),]),
+						coordinates(Gopher_site[which(Gopher_site$Type_ID=="CTAP 72"),]),
+						coordinates(Gopher_site[which(Gopher_site$Type_ID=="CTAP 71"),]),
+						coordinates(Gopher_site[which(Gopher_site$Type_ID=="CTAP 73"),]),
+						coordinates(Gopher_site[which(Gopher_site$Type_ID=="Random 34"),]),
+						coordinates(Gopher_site[which(Gopher_site$Type_ID=="Random 89"),]))[,1:2])
+
+occ.pts
+dim(PA_variable)
+
+sp.occur.spdf <- SpatialPointsDataFrame(occ.pts, 
+                                        data=PA_variable[1:9,])
+sp.occur.spdf
+
+sp.occur.spdf@proj4string <- illinois@proj4string
+
+sp.occur.spdf$name <- over(sp.occur.spdf, illinois)$NAME
+
+sp.occur_2010.spdf <- SpatialPointsDataFrame(cbind(sp.occur_2010$lon,sp.occur_2010$lat), 
+                                        data=sp.occur_2010)
+plot(illinois)
+points(sp.occur_2010.spdf)
+points(occ.pts,col="red",pch=17)
+points(pres_only_sp,col="cyan",pch=17)
+sp.occur_2010.spdf
+crs(pres_only_sp)<-crs(sp.occur_2010.spdf)
+crs(occ.pts)<-crs(sp.occur_2010.spdf)
+occ.pts_2<-SpatialPoints(data.frame(cbind(c(coordinates(sp.occur_2010.spdf)[,1],coordinates(occ.pts)[,1],coordinates(pres_only_sp)[,1])),
+		c(coordinates(sp.occur_2010.spdf)[,2],coordinates(occ.pts)[,2],coordinates(pres_only_sp)[,2])))
+
+po_all<-data.frame(cbind(c(coordinates(sp.occur_2010.spdf)[,1],coordinates(occ.pts)[,1],coordinates(pres_only_sp)[,1])),
+		c(coordinates(sp.occur_2010.spdf)[,2],coordinates(occ.pts)[,2],coordinates(pres_only_sp)[,2]))
+
+
+geo_po<-cbind(rep("geomys",length(po_all[,1])),po_all)
+colnames(geo_po)<-c("species","longitude","latitude")
+plot(occ.pts_2)
+
+occ.pts_th<-thin(geo_po,lat.col="latitude",long.col="longitude",spec.col="species" ,thin.par=2,reps=5,locs.thinned.list.return=TRUE,write.files=FALSE)
+
+occ.pts_th
+
+points(sp.occur.spdf,pch=17,col="cyan")
+pres.pts<-data.frame(coordinates(occ.pts)[,1:2])
+pres.pts
+back.pts<-SpatialPoints(coordinates(Gopher_site[)[,1:2])
+back.pts
+back.pts_pbso<-SpatialPoints(rbind(coordinates(Gopher_site)[,1:2],coordinates(sp.occur_2010.spdf))
+)
+plot(back.pts_pbso)
+
+##back.pts is not a large enough sample to generate accurate maps
+####maxent
+
+head(Gopher_site)
+predictors_full<-predictors
+names(predictors_full)
+predictors<-na.omit(predictors_full[[11]],predictors_full[[12]],predictors_full[[16]],predictors_full[[17]],predictors_full[[21]],predictors_full[[22]]))
+crs(occ.pts)<-crs(predictors)
+crs(sp.occur_2010.spdf)<-crs(predictors)
+crs(back.pts)<-crs(predictors)
+crs(back.pts_pbso)<-crs(predictors)
+occ.pts@proj4string <- illinois@proj4string
+sp.occur_2010.spdf@proj4string<-illinois@proj4string
+back.pts@proj4string <- illinois@proj4string
+back.pts_pbso@proj4string <- illinois@proj4string
+back.pts_pbso
+predictors
+occ.pts
+back.pts
+occ.pts_2<-rbind(coordinates(sp.occur_2010.spdf),coordinates(occ.pts))
+occ.pts_2
+occ.pts<-SpatialPoints(occ.pts_2)
+plot(occ.pts)
+plot(original_raster)
+points(occ.pts_2,pch=17)
+plot(predictors[[1]])
+
+beta.parameters <- c(1,2)
+#beta.parameters<-1 # Create a vector of all the beta paremeters
+
+
+plot(predictors)
+###################
+#convert background points to buffered features, restricting MaxEnt points to areas near where we sampled
+back.pts
+back_buffer<-gBuffer(back.pts_pbso,width=.1) #.01 is just over 1 km
+plot(back_buffer)
+back_buffer
+predictors_buff<-crop(predictors,back_buffer)
+predictors_buff<-mask(predictors_buff,back_buffer)
+
+plot(predictors_buff)
+
+
+###Try to mask with study area rather than site buffers
+
+#C:\Users\Nathan\Desktop\Gopher\Survey Design\
+original_raster<-raster(choose.files())
+plot(orignal_raster)
+
+original_raster
+crs(original_raster)<-crs(predictors)
+
+plot(illinois)
+plot(original_raster,add=TRUE)
+points(occ.pts)
+
+predictors_crp<-crop(predictors,original_raster)
+predictors_crp<-mask(predictors_crp,original_raster)
+plot(predictors_crp)
+
+###Try buffered around occurrences?
+occ_buffer<-gBuffer(occ.pts,width=.1) #.01 is just over 1 km
+plot(occ_buffer)
+back_buffer
+predictors_occ.buff<-crop(predictors,occ_buffer)
+predictors_occ.buff<-mask(predictors_occ.buff,occ_buffer)
+plot(predictors_occ.buff)
+
+plot(predictors[[7]])
+points(try)
+names(sp.occur)
+try<-SpatialPointsDataFrame(cbind(sp.occur$lon,sp.occur$lat),data=sp.occur)
+try@proj4string<-illinois@proj4string
+crs(try)<-crs(illinois)
+install.packages("spatialEco")
+require(spatialEco)
+try<-crop(try,illinois)
+plot(illinois)
+points(try)
+
+
+##Keep only illinois occurrences
+inter = gIntersection(try, illinois, byid=T, drop_not_poly=T)
+plot(illinois)
+names(predictors_buff)
+dev.new()
+plot.new()
+plot(predictors_buff[[7]])
+points(back.pts)
+points(occ.pts,pch=17)
+plot(stack(as.factor(predictors_buff[[22]]),as.factor(predictors_buff[[24]])))
+neg.maxent <- maxent(stack(as.factor(predictors_buff[[22]]),as.factor(predictors_buff[[24]])), occ.pts_2,removeDuplicates=TRUE, args=c("betamultiplier=1", "-J", "-P"),
+				path="C:\\Users\\Nathan\\Desktop\\Gopher\\MaxEnt_PA")
+(neg.maxent)
+
+
+max.results <- dismo::predict(neg.maxent, predictors)
+
+plot(max.results)
+points(back.pts_pbso)
+points(occ.pts_2,pch=16,cex=1.2,col="red")
+points(occ.pts,pch=16,cex=1.2,col="black")
+points(back.pts,pch=10)
+occ.pts_2
+
+back<-extract(max.results,back.pts_pbso)
+occ<-extract(max.results,occ.pts_2)
+occ1<-extract(max.results,occ.pts)
+occ.pts
+boxplot(back,occ)
+beta.parameters
+for(i in beta.parameters){
+  print(paste("Run Maxent with", i, "as the beta parameter"))
+}
+all.combos <- list()
+pred.num <- nlayers(predictors_buff)
+for(i in 2:pred.num){
+  all.combos <- c(all.combos, combn(1:pred.num, i, simplify=FALSE))
+}
+all.combos
+for(i in beta.parameters){ # Create a loop for each beta parameter
+  for(j in 1:length(all.combos)){
+output.dir <- paste("C:\\Users\\Nathan\\Desktop\\Gopher\\MaxEnt_PA\\b", i, ".", 
+                        paste(all.combos[[j]], collapse=''), sep="")   
+print(output.dir)
+
+model <- maxent(predictors_buff[[all.combos[[j]]]], occ.pts,
+                    args=c(paste("betamultiplier=", i, sep=""), "outputformat=raw"),
+                           path=output.dir,overwrite=TRUE)
+    max.results <- dismo::predict(model, predictors[[all.combos[[j]]]])
+    writeRaster(max.results, paste(output.dir, "/maxent.asc", sep=""),
+                format="ascii",overwrite=TRUE)
+    print(paste(j, " of ", length(all.combos), ": ", Sys.time(), sep=""))
+  }
+  
+}
+name <- rep("geomys",nrow(occ.pts))
+#have to subset longitude and latitude column based on INHS or GBIF data
+class(occ.pts)
+Long<-coordinates(occ.pts)[,1]
+
+Lat<-coordinates(occ.pts)[,2]
+points(Long,Lat,col="blue")
+
+enmtools.occpts <- data.frame(name, Long, Lat)
+colnames(enmtools.occpts) <- c("Species", "X", "Y")
+write.csv(enmtools.occpts,"C:\\Users\\Nathan\\Desktop\\Gopher\\MaxEnt_PA\\geomys.csv" , row.names=FALSE)
+
+
+head(enmtools.occpts)
+plot(enmtools.occpts$Y~enmtools.occpts$X,add=TRUE, pch=17)
+points(occ.pts,add=TRUE)
+setwd("C:\\Users\\Nathan\\Desktop\\Gopher\\MaxEnt_PA")
+
+dirs <- list.files()
+dirs
+
+models <- NULL
+for(i in 1:length(dirs)){
+  models[i] <- paste("C:\\Users\\Nathan\\Desktop\\Gopher\\MaxEnt_PA\\geomys.csv,","C:\\Users\\Nathan\\Desktop\\Gopher\\MaxEnt_PA\\",dirs[i], 
+			"\\maxent.asc,C:\\Users\\Nathan\\Desktop\\Gopher\\MaxEnt_PA\\", dirs[i],
+                    "\\species.lambdas", sep="")
+}
+
+write.csv(models, "C:\\Users\\Nathan\\Desktop\\Gopher\\MaxEnt_PA\\maxent_models.csv", row.names=FALSE, quote=FALSE, col.names=FALSE)
+
+#####sensitivity###
+length(occ.pts)
+all.combos
+predictors
+all.combos[[6]]
+for(z in 1:9){
+for(i in 1:length(occ.pts)){ # Create a loop for each beta parameter
+output.dir <- paste("C:\\Users\\Nathan\\Desktop\\Gopher\\MaxEnt_PA\\sensitivity\\",z,"_", i, ".", 
+                        paste("17", collapse=''), sep="")   
+print(output.dir)
+i
+model <- maxent(predictors_buff[[all.combos[[6]]]], occ.pts[-i],
+                    args=c(paste("betamultiplier=", 1, sep=""), "outputformat=raw"),
+                           path=output.dir,overwrite=TRUE)
+    max.results <- dismo::predict(model, predictors[[all.combos[[6]]]])
+
+    writeRaster(max.results, paste(output.dir, "/maxent.asc", sep=""),
+                format="ascii",overwrite=TRUE)
+    print(paste(j, " of ", length(all.combos), ": ", Sys.time(), sep=""))
+  }
+  
+}
+plot.new()
+plot(max.results)
+
