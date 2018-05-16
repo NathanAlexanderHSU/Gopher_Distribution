@@ -147,11 +147,24 @@ Pilot_survey_occ_spdf@data
 
 ###INHS historic data####
 crs(INHS_spdf_1945_1955)<-crs(illinois)
-Pilot_labels<-paste0("Pilot",1)
-for (i in 2:3){
-Pilot_labels_1<-paste0("Pilot",i)
-Pilot_labels<-rbind(Pilot_labels,Pilot_labels_1)
+INHS_1945_55_labels<-paste0("INHS_45-55_",1)
+for (i in 2:100){
+INHS_1945_55_labels_1<-paste0("INHS_45-55_",i)
+INHS_1945_55_labels<-rbind(INHS_1945_55_labels,INHS_1945_55_labels_1)
 }
+INHS_spdf_1945_1955@data$name<-as.character(INHS_1945_55_labels)
+INHS_spdf_1945_1955@data
+
+###INHS second set of historic data###
+
+crs(INHS_spdf_1955UP)<-crs(illinois)
+INHS_55UP_labels<-paste0("INHS_55UP_",1)
+for (i in 2:62){
+INHS_55UP_labels_1<-paste0("INHS_55UP_",i)
+INHS_55UP_labels<-rbind(INHS_55UP_labels,INHS_55UP_labels_1)
+}
+INHS_spdf_1955UP@data$name<-as.character(INHS_55UP_labels)
+INHS_spdf_1955UP@data
 
 
 #########write out gpx files#################
@@ -166,3 +179,10 @@ writeOGR(Gbif_sites_spdf, dsn="C:/Users/Nathan/Desktop/Gopher/Survey Design/Site
 
 writeOGR(Pilot_survey_occ_spdf, dsn="C:/Users/Nathan/Desktop/Gopher/Survey Design/Sites/Pilot_occupied.gpx",layer="Pilot_occupied",
 	dataset_options="GPX_USE_EXTENSIONS=yes", driver="GPX",overwrite=TRUE)
+
+
+writeOGR(INHS_spdf_1945_1955, dsn="C:\\Users\\Nathan\\Desktop\\Gopher\\Historic Data\\INHS_spdf_1945_1955.gpx",layer="INHS_spdf_1945_1955",
+	dataset_options="GPX_USE_EXTENSIONS=yes", driver="GPX",overwrite=TRUE)
+
+writeOGR(INHS_spdf_1955UP, dsn="C:\\Users\\Nathan\\Desktop\\Gopher\\Historic Data\\INHS_1955UP.gpx",layer="INHS_1955UP",
+		dataset_options="GPX_USE_EXTENSIONS=yes", driver="GPX",overwrite=TRUE)
