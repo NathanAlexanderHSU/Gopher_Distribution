@@ -25,6 +25,7 @@ Occupied_sites_spdf<-SpatialPointsDataFrame(Occupied_sites[,15:16],data=Occupied
 plot(Occupied_sites_spdf,pch=17,col="red",add=TRUE)
 Occupied_sites_spdf
 writeOGR(Occupied_sites_spdf, dsn="C:/Users/Nathan/Desktop/Gopher/Survey Design/Sites",layer="PA_occupied", driver="ESRI Shapefile")
+plot(Occupied_sites_spdf[7,7],pch=17,col="red",add=TRUE)
 
 ###########Bluett Occupied Sites########
 library(exifr)
@@ -98,7 +99,70 @@ INHS_spdf_1945_1955<-readOGR(dsn="C:\\Users\\Nathan\\Desktop\\Gopher\\Historic D
 INHS_spdf_1955UP<-readOGR(dsn="C:\\Users\\Nathan\\Desktop\\Gopher\\Historic Data",layer="INHS_1955UP")
 
 
+####Assign CRS and ensure labels####
+
+###PA occupied##
+crs(Occupied_sites_spdf)<-crs(illinois)
+Occupied_sites_spdf@data$name
+Occupied_sites_spdf@data$name <- Occupied_sites_spdf@data$Type_ID
+Occupied_sites_spdf@data
+##Bluett###
+Bluett_sites_spdf
+crs(Bluett_sites_spdf)<-crs(illinois)
+
+Bluett_labels<-paste0("Bluett",1)
+for (i in 2:68){
+Bluett_labels_1<-paste0("Bluett",i)
+Bluett_labels<-rbind(Bluett_labels,Bluett_labels_1)
+}
+
+Bluett_labels
+Bluett_sites_spdf@data<-data.frame(Bluett_labels,Bluett_sites_spdf@data)
+Bluett_sites_spdf@data$name <- Bluett_sites_spdf@data$Bluett_labels
+
+
+##Gbif##
+
+crs(Gbif_sites_spdf)<-crs(illinois)
+
+Gbif_labels<-paste0("Gbif",1)
+for (i in 2:16){
+Gbif_labels_1<-paste0("Gbif",i)
+Gbif_labels<-rbind(Gbif_labels,Gbif_labels_1)
+}
+
+Gbif_sites_spdf@data<-data.frame(Gbif_labels,Gbif_sites_spdf@data)
+Gbif_sites_spdf@data$name
+Gbif_sites_spdf@data$name <- Gbif_sites_spdf@data$Gbif_labels
+
+
+##Pilot Survey##
+Pilot_labels<-paste0("Pilot",1)
+for (i in 2:3){
+Pilot_labels_1<-paste0("Pilot",i)
+Pilot_labels<-rbind(Pilot_labels,Pilot_labels_1)
+}
+Pilot_survey_occ_spdf@data$name<-as.character(Pilot_labels)
+Pilot_survey_occ_spdf@data
+
+###INHS historic data####
+crs(INHS_spdf_1945_1955)<-crs(illinois)
+Pilot_labels<-paste0("Pilot",1)
+for (i in 2:3){
+Pilot_labels_1<-paste0("Pilot",i)
+Pilot_labels<-rbind(Pilot_labels,Pilot_labels_1)
+}
+
+
 #########write out gpx files#################
+writeOGR(Occupied_sites_spdf, dsn="C:/Users/Nathan/Desktop/Gopher/Survey Design/Sites/PA_occupied.gpx",
+	layer="PA_occupied",dataset_options="GPX_USE_EXTENSIONS=yes", driver="GPX",overwrite=TRUE)
 
+writeOGR(Bluett_sites_spdf, dsn="C:/Users/Nathan/Desktop/Gopher/Survey Design/Sites/Bluett_occupied.gpx",layer="Bluett_occupied",
+	dataset_options="GPX_USE_EXTENSIONS=yes", driver="GPX",overwrite=TRUE)
 
+writeOGR(Gbif_sites_spdf, dsn="C:/Users/Nathan/Desktop/Gopher/Survey Design/Sites/Gbif_occupied.gpx",layer="Gbif_occupied",
+	dataset_options="GPX_USE_EXTENSIONS=yes", driver="GPX",overwrite=TRUE)
 
+writeOGR(Pilot_survey_occ_spdf, dsn="C:/Users/Nathan/Desktop/Gopher/Survey Design/Sites/Pilot_occupied.gpx",layer="Pilot_occupied",
+	dataset_options="GPX_USE_EXTENSIONS=yes", driver="GPX",overwrite=TRUE)
