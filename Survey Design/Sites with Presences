@@ -1,0 +1,104 @@
+library (rgdal)
+library(dismo)
+
+require(raster)
+require(fields)
+require(mvtnorm)
+require(matrixStats)
+
+#########Illinois shapefile############
+illinois<-readOGR(dsn="C:/Users/Nathan/Desktop/Gopher/Political Boundaries",layer="IL_BNDY_County_Py")
+plot(illinois)
+
+
+#############PA occupied sites########
+Gopher_site<-readOGR(dsn="C:/Users/Nathan/Desktop/Gopher/Survey Design/Sites",layer="Fall_2017_PA")
+plot(Gopher_site)
+Gopher_site
+
+sites<-data.frame(rbind("CTAP 69", "CTAP 21", "Random 40","Random 114","Random 89","CTAP 72","CTAP 71","Random 34", "CTAP 73"))
+colnames(sites)<-"Type_ID"
+Occupied_sites<-merge(sites, Gopher_site,by="Type_ID")
+Occupied_sites
+dim(Occupied_sites)
+Occupied_sites_spdf<-SpatialPointsDataFrame(Occupied_sites[,15:16],data=Occupied_sites)
+plot(Occupied_sites_spdf,pch=17,col="red",add=TRUE)
+Occupied_sites_spdf
+writeOGR(Occupied_sites_spdf, dsn="C:/Users/Nathan/Desktop/Gopher/Survey Design/Sites",layer="PA_occupied", driver="ESRI Shapefile")
+
+###########Bluett Occupied Sites########
+library(exifr)
+library(dplyr)
+library(leaflet)
+setwd(choose.dir())
+files <- list.files()
+files
+dat <- read_exif(files)
+names(dat)
+
+Bluett_coords<-cbind(dat$FileName,dat$GPSLongitude,dat$GPSLatitude)
+Bluett_coords
+#remove the ones without a geotag
+Bluett_coords<-(rbind(Bluett_coords[1:33,],Bluett_coords[40:50,],Bluett_coords[52:75,]))
+
+plot(illinois)
+Bluett_coords
+points((Bluett_coords[,2:3]),pch=17,col="blue")
+length(na.omit(Bluett_coords[,1]))
+Bluett_sites_spdf<-SpatialPointsDataFrame(cbind(as.numeric(Bluett_coords[,2]),as.numeric(Bluett_coords[,3])),data=data.frame(Bluett_coords))
+
+writeOGR(Bluett_sites_spdf, dsn="C:/Users/Nathan/Desktop/Gopher/Survey Design/Sites",layer="Bluette_occupied", driver="ESRI Shapefile")
+
+
+#########GBIF current sites###########
+sp.occur <- gbif(genus='Geomys', species='bursarius', geo=TRUE,removeZeros=TRUE,ext=illinois)
+
+sp.occur_2010<-sp.occur[which(sp.occur$year>=2010),]
+class(sp.occur)
+
+points(cbind(sp.occur_2010$lon,sp.occur_2010$lat),pch=17,col="purple")
+Gbif_sites_spdf<-SpatialPointsDataFrame(cbind(sp.occur_2010$lon,sp.occur_2010$lat),data=sp.occur_2010)
+
+writeOGR(Gbif_sites_spdf, dsn="C:/Users/Nathan/Desktop/Gopher/Survey Design/Sites",layer="Gbif_occupied", driver="ESRI Shapefile")
+
+############Pilot Study surveys###########
+survey<-readOGR(dsn="C:/Users/Nathan/Desktop/Gopher/PocketGophers/Pilot Study",layer="Merged_84t")
+survey.na<-survey[survey$UTM_E > 1,]
+
+Pilot_survey_occ<-survey.na[survey.na$Gopher_Sig == "High certainty",]
+Pilot_survey_occ
+points(Pilot_survey_occ,pch=17,col="orange")
+
+writeOGR(Pilot_survey_occ, dsn="C:/Users/Nathan/Desktop/Gopher/Survey Design/Sites",layer="Pilot_occupied", driver="ESRI Shapefile")
+
+#############historic data################
+
+INHS_samples<-read.csv("C:\\Users\\Nathan\\Desktop\\Gopher\\Historic Data\\G_b_INHS_Illinois.csv")
+INHS_samples_spdf<-SpatialPointsDataFrame(cbind(INHS_samples$Long,INHS_samples$Lat),data=INHS_samples)
+INHS_samples_spdf_1945_1955<-INHS_samples_spdf[INHS_samples_spdf$Year >1944,]
+INHS_samples_spdf_1945_1955<-INHS_samples_spdf_1945_1955[INHS_samples_spdf_1945_1955$Year <1956,]
+INHS_samples_spdf_1945_1955$Year
+
+writeOGR(INHS_samples_spdf_1945_1955, dsn="C:\\Users\\Nathan\\Desktop\\Gopher\\Historic Data",layer="INHS_1945_1955", driver="ESRI Shapefile")
+
+points(INHS_samples_spdf_1945_1955,pch=16,col="forest green")
+
+INHS_samples_spdf_1955UP<-INHS_samples_spdf[INHS_samples_spdf$Year >1955,]
+writeOGR(INHS_samples_spdf_1955UP, dsn="C:\\Users\\Nathan\\Desktop\\Gopher\\Historic Data",layer="INHS_1955UP", driver="ESRI Shapefile")
+points(INHS_samples_spdf_1955UP,pch=16,col="lime green")
+
+###############Read in Created Files######################
+illinois<-readOGR(dsn="C:/Users/Nathan/Desktop/Gopher/Political Boundaries",layer="IL_BNDY_County_Py")
+Occupied_sites_spdf<-readOGR(dsn="C:/Users/Nathan/Desktop/Gopher/Survey Design/Sites",layer="PA_occupied")
+Bluett_sites_spdf<-readOGR(dsn="C:/Users/Nathan/Desktop/Gopher/Survey Design/Sites",layer="Bluette_occupied")
+Gbif_sites_spdf<-readOGR(dsn="C:/Users/Nathan/Desktop/Gopher/Survey Design/Sites",layer="Gbif_occupied")
+Pilot_survey_occ_spdf<-readOGR(dsn="C:/Users/Nathan/Desktop/Gopher/Survey Design/Sites",layer="Pilot_occupied")
+
+INHS_spdf_1945_1955<-readOGR(dsn="C:\\Users\\Nathan\\Desktop\\Gopher\\Historic Data",layer="INHS_1945_1955")
+INHS_spdf_1955UP<-readOGR(dsn="C:\\Users\\Nathan\\Desktop\\Gopher\\Historic Data",layer="INHS_1955UP")
+
+
+#########write out gpx files#################
+
+
+
