@@ -186,6 +186,7 @@ crs(illinois)<-crs(predictors)
 crs(total.pts)<-crs(predictors)
 total.pts <- gIntersection(total.pts, illinois, byid=TRUE)
 occ.pts<-sample(total.pts,length(total.pts)/2,replace=FALSE)
+test.pts<-total.pts[total.pts!=occ.pts]
 plot(illinois)
 points(occ.pts,col='red')
 points(total.pts)
@@ -255,6 +256,6 @@ for(i in 1:length(dirs)){
 write.csv(models, "C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles\\MaxEnt_2019\\maxent_models.csv", row.names=FALSE, quote=FALSE, col.names=FALSE)
 occ.pts
 predictors
-predict<-stack(predictors[[2]],predictors[[4:6]],predictors[[8:9]])
+predict<-stack(predictors[[1]],predictors[[2:3]],predictors[[5:7]])
 neg.maxent <- maxent(predict, data.frame(occ.pts)[,1:2],removeDuplicates=TRUE, args=c("betamultiplier=1", "-J", "-P"),
 				path="C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles\\Selected_Model")
