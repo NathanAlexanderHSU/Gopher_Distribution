@@ -1,4 +1,5 @@
 ###Post driving survey Maxent
+setwd(choose.dir())
 install.packages("spatstat")
 install.packages("rgdal")
 install.packages("raster")
@@ -14,7 +15,6 @@ install.packages('leaflet')
 install.packages('tidyverse')
 install.packages('dismo')
 install.packages('prism',dependencies=TRUE)
-install.packages('stringi')
 require(spatstat)
 require(rgdal)
 require(raster)
@@ -29,9 +29,10 @@ library(dplyr)
 library(leaflet)
 require(devtools)
 require(prism)
+install.packages('stringi')
 require(stringi)
 #initial gopher shape files
-
+??prism
 illinois<-readOGR(dsn="C:/Users/Nathan/Desktop/Gopher/Presence_Only_shapefiles",layer="IL_BNDY_County_Py")
 dev.new()
 plot(illinois)
@@ -64,9 +65,9 @@ plot(illinois)
 cr.clim<-crop(prism_2008_18,illinois)
 cr.clim<-mask(cr.clim,illinois)
 plot(cr.clim,add=TRUE)
-sd_precip<-calc(cr.clim,sd,na.rm=TRUE)
+sd_precip<-calc(cr.clim,sd)
 names(sd_precip)<-"Precipitation SD"
-avg_precip<-calc(cr.clim, mean, na.rm=TRUE)
+avg_precip<-calc(cr.clim, mean)
 names(avg_precip)<-"Precipitation Mean"
 plot(avg_precip)
 
@@ -108,7 +109,7 @@ plot(predictors)
 ###############################################
 ###############################################
 ###############################################
-
+setwd(choose.dir())
 ####Occupied Sites
 
 #Pilot points
@@ -149,9 +150,9 @@ Bluet_sp
 
 sp.occur <- gbif(genus='Geomys', species='bursarius', geo=TRUE,removeZeros=TRUE,ext=illinois)
 
-sp.occur_2010<-sp.occur[which(sp.occur$year>=2010),]
+sp.occur_2008<-sp.occur[which(sp.occur$year>=2008),]
 
-gbif_sp<-SpatialPoints(cbind(sp.occur_2010$lon,sp.occur_2010$lat))
+gbif_sp<-SpatialPoints(cbind(sp.occur_2008$lon,sp.occur_2008$lat))
 
 ##Driving Survey
 
@@ -168,8 +169,8 @@ crs(pilot)<-crs(gbif_sp)
 crs(PA)<-crs(gbif_sp)
 gbif_sp
 presence_only<-SpatialPoints(rbind(drive_sp,gbif_sp,Bluet_sp,pilot_sp,PA_sp))
-occ.pts<-presence_only
-
+total.pts<-presence_only
+plot(illinois)
 ####### Read in original raster if you want to clip to it
 original_raster<-raster("C:\\Users\\Nathan\\Desktop\\Gopher\\Survey Design\\Min_Thresh_stand.asc")
 
@@ -177,14 +178,17 @@ original_raster<-raster("C:\\Users\\Nathan\\Desktop\\Gopher\\Survey Design\\Min_
 ####MAXENT CODE######
 #####################
 names(predictors)
-predictors <- stack(cr.clim,cr.elev,slope,soil_rast_re,cr.elev,land_use_il_re)
-reduced.preds <- stack(c(predictors[[5]], predictors[[6]], predictors[[12]],
-                         predictors[[13]],predictors[[14]],predictors[[20]],predictors[[21]],predictors[[22]],predictors[[24]]))
+predictors <- stack(cr.precip_sd,cr.precip_avg,cr.elev,slope,soil_rast_texture,soil_rast_drainage,soil_rast_sand,land_use_il_re)
+reduced.preds <- predictors
 
 reduced.preds
 crs(illinois)<-crs(predictors)
-crs(occ.pts)<-crs(predictors)
-occ.pts <- gIntersection(occ.pts, illinois, byid=TRUE)
+crs(total.pts)<-crs(predictors)
+total.pts <- gIntersection(total.pts, illinois, byid=TRUE)
+occ.pts<-sample(total.pts,length(total.pts)/2,replace=FALSE)
+plot(illinois)
+points(occ.pts,col='red')
+points(total.pts)
 occ.pts
 #beta.parameters<-1 # Create a vector of all the beta paremeters
 beta.parameters <- c(1,2)
