@@ -1,5 +1,4 @@
 ###Post driving survey Maxent
-
 install.packages("spatstat")
 install.packages("rgdal")
 install.packages("raster")
@@ -14,6 +13,8 @@ install.packages('dplyr')
 install.packages('leaflet')
 install.packages('tidyverse')
 install.packages('dismo')
+install.packages('prism',dependencies=TRUE)
+install.packages('stringi')
 require(spatstat)
 require(rgdal)
 require(raster)
@@ -27,7 +28,8 @@ library(exifr)
 library(dplyr)
 library(leaflet)
 require(devtools)
-
+require(prism)
+require(stringi)
 #initial gopher shape files
 
 illinois<-readOGR(dsn="C:/Users/Nathan/Desktop/Gopher/Presence_Only_shapefiles",layer="IL_BNDY_County_Py")
@@ -44,16 +46,31 @@ elev <- getData('alt', download=TRUE, country='USA', mask=TRUE)
 elev.48 <- elev[[1]]
 
 ##Bioclim
-clim.W<-getData('worldclim',var='bio',res=2.5)
-clim<-crop(clim.W,illinois)
+#clim.W<-getData('worldclim',var='bio',res=2.5)
+#clim<-crop(clim.W,illinois)
+
+##Prism 
+ann_precip<-get_prism_annual(type='ppt', years=2008:2018)
+list_prism<-ls_prism_data(absPath = FALSE, name = FALSE)
+prism_2008_18<-prism_stack(list_prism)
+plot(prism_2008_18)
 
 ##have to fix crs (switch to WGS 84) for illinois to mask
 
-crs(illinois)<-crs(clim)
+crs(illinois)<-crs(prism_2008_18)
 
 plot(illinois)
 
-cr.clim<-mask(clim,illinois)
+cr.clim<-crop(prism_2008_18,illinois)
+cr.clim<-mask(cr.clim,illinois)
+plot(cr.clim,add=TRUE)
+sd_precip<-calc(cr.clim,sd,na.rm=TRUE)
+names(sd_precip)<-"Precipitation SD"
+avg_precip<-calc(cr.clim, mean, na.rm=TRUE)
+names(avg_precip)<-"Precipitation Mean"
+plot(avg_precip)
+
+
 cr.elev<-crop(elev.48,illinois)
 cr.elev<-mask(cr.elev,illinois)
 plot(cr.elev)
@@ -61,32 +78,33 @@ plot(cr.elev)
 
 predictors
 soil<-readOGR(dsn="C:/Users/Nathan/Desktop/Gopher/Environmental Shapefiles/Soil_trial",layer="SSURGO_IL_Text1")
-(soil_rast_re)
-r<-raster(ncol=ncol(cr.elev[[1]]),nrow=nrow(cr.elev[[1]]))
-soil_rast_re<-rasterize(soil,cr.elev,'texdesc')
-plot(cr.elev)
+
+
+soil_rast_texture<-as.factor(rasterize(soil,cr.elev,'texdesc'))
+names(soil_rast_texture)<-"Soil Texture"
+soil_rast_drainage<-as.factor(rasterize(soil,cr.elev,'drainagecl'))
+names(soil_rast_drainage)<-"Soil Drainage"
+soil_rast_sand<-rasterize(soil,cr.elev,'sandtotal_')
+names(soil_rast_sand)<-"Soil Sand Percentage"
 
 land_use<-raster("C:/Users/Nathan/Desktop/Gopher/Environmental Shapefiles/c2016_30m_cdls_84.img")
-plot(land_use_il_re,legend=TRUE)
 land_use_il<-crop(land_use,illinois)
-plot(land_use_il)
-land_use_il_re<-resample(land_use_il,cr.elev)
+
+land_use_il_re<-as.factor(resample(land_use_il,cr.elev))
 land_use_il_re<-mask(land_use_il_re,illinois)
-cr.clim<-resample(cr.clim,cr.elev)
-
-cr.clim
-cr.elev
-land_use_il_re
-soil_rast_re
-compareRaster(soil_rast_re,land_use_il_re,cr.elev)
-
+names(land_use_il_re)<-"Land Cover"
+cr.precip_sd<-resample(sd_precip,cr.elev)
+cr.precip_avg<-resample(avg_precip,cr.elev)
+plot(land_use_il_re,legend=TRUE)
+names(cr.elev)<-"Elevation"
+names(slope)<-"Slope"
 
 ##convert elevation to slope
 slope<-terrain(cr.elev,opt='slope',unit='degrees',neighbors=8)
 plot(slope)
 
-predictors <- stack(cr.clim,cr.elev,slope,soil_rast_re,cr.elev,land_use_il_re)
-predictors
+predictors <- stack(cr.precip_sd,cr.precip_avg,cr.elev,slope,soil_rast_texture,soil_rast_drainage,soil_rast_sand,land_use_il_re)
+plot(predictors)
 ###############################################
 ###############################################
 ###############################################
@@ -236,4 +254,3 @@ predictors
 predict<-stack(predictors[[2]],predictors[[4:6]],predictors[[8:9]])
 neg.maxent <- maxent(predict, data.frame(occ.pts)[,1:2],removeDuplicates=TRUE, args=c("betamultiplier=1", "-J", "-P"),
 				path="C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles\\Selected_Model")
-
