@@ -31,6 +31,7 @@ require(devtools)
 require(prism)
 install.packages('stringi')
 require(stringi)
+require(prism)
 #initial gopher shape files
 ??prism
 illinois<-readOGR(dsn="C:/Users/Nathan/Desktop/Gopher/Presence_Only_shapefiles",layer="IL_BNDY_County_Py")
@@ -98,11 +99,12 @@ cr.precip_sd<-resample(sd_precip,cr.elev)
 cr.precip_avg<-resample(avg_precip,cr.elev)
 plot(land_use_il_re,legend=TRUE)
 names(cr.elev)<-"Elevation"
-names(slope)<-"Slope"
+
 
 ##convert elevation to slope
 slope<-terrain(cr.elev,opt='slope',unit='degrees',neighbors=8)
 plot(slope)
+names(slope)<-"Slope"
 
 predictors <- stack(cr.precip_sd,cr.precip_avg,cr.elev,slope,soil_rast_texture,soil_rast_drainage,soil_rast_sand,land_use_il_re)
 plot(predictors)
@@ -172,7 +174,7 @@ presence_only<-SpatialPoints(rbind(drive_sp,gbif_sp,Bluet_sp,pilot_sp,PA_sp))
 total.pts<-presence_only
 plot(illinois)
 ####### Read in original raster if you want to clip to it
-original_raster<-raster("C:\\Users\\Nathan\\Desktop\\Gopher\\Survey Design\\Min_Thresh_stand.asc")
+#original_raster<-raster("C:\\Users\\Nathan\\Desktop\\Gopher\\Survey Design\\Min_Thresh_stand.asc")
 
 #####################
 ####MAXENT CODE######
@@ -185,6 +187,7 @@ reduced.preds
 crs(illinois)<-crs(predictors)
 crs(total.pts)<-crs(predictors)
 total.pts <- gIntersection(total.pts, illinois, byid=TRUE)
+set.seed(652)
 occ.pts<-sample(total.pts,length(total.pts)/2,replace=FALSE)
 test.pts<-total.pts[total.pts!=occ.pts]
 plot(illinois)
