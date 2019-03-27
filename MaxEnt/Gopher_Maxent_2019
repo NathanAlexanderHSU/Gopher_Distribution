@@ -187,13 +187,24 @@ reduced.preds
 crs(illinois)<-crs(predictors)
 crs(total.pts)<-crs(predictors)
 total.pts <- gIntersection(total.pts, illinois, byid=TRUE)
-set.seed(652)
-occ.pts<-sample(total.pts,length(total.pts)/2,replace=FALSE)
-test.pts<-total.pts[total.pts!=occ.pts]
+
+#set a seed to do a random selection of 75% of the data
+set.seed(1)
+
+#create a vector of all the pts
+pt_total<-as.vector(1:length(total.pts))
+
+#create the training and testing data
+pt_train<-sample(pt_total,3*length(pt_total)/4,replace=FALSE)
+pt_test<-pt_total[-pt_train]
+
+occ.pts<-total.pts[pt_train,]
+val.pts<-total.pts[pt_test,]
+
 plot(illinois)
 points(occ.pts,col='red')
-points(total.pts)
-occ.pts
+points(val.pts)
+
 #beta.parameters<-1 # Create a vector of all the beta paremeters
 beta.parameters <- c(1,2)
 
@@ -259,6 +270,14 @@ for(i in 1:length(dirs)){
 write.csv(models, "C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles\\MaxEnt_2019\\maxent_models.csv", row.names=FALSE, quote=FALSE, col.names=FALSE)
 occ.pts
 predictors
-predict<-stack(predictors[[1]],predictors[[2:3]],predictors[[5:7]])
+predict<-stack(predictors[[2:3]],predictors[[5:6]])
 neg.maxent <- maxent(predict, data.frame(occ.pts)[,1:2],removeDuplicates=TRUE, args=c("betamultiplier=1", "-J", "-P"),
 				path="C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles\\Selected_Model")
+
+
+in.maxent <- maxent(predict, occ.pts, args=c("betamultiplier=1", "-J", "-P"),
+				path="C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles\\Selected_Model")
+
+InPred<-predict(in.maxent,predict)
+plot(InPred)
+points(total.pts)
