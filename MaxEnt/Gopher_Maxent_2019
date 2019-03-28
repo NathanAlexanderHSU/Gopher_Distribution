@@ -211,7 +211,7 @@ beta.parameters <- c(1,2)
 for(i in beta.parameters){
   print(paste("Run Maxent with", i, "as the beta parameter"))
 }
-
+plot(predictors)
 all.combos <- list()
 predictors<-reduced.preds
 pred.num <- nlayers(predictors)
@@ -275,9 +275,19 @@ neg.maxent <- maxent(predict, data.frame(occ.pts)[,1:2],removeDuplicates=TRUE, a
 				path="C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles\\Selected_Model")
 
 
-in.maxent <- maxent(predict, occ.pts, args=c("betamultiplier=1", "-J", "-P"),
-				path="C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles\\Selected_Model")
-
-InPred<-predict(in.maxent,predict)
+InPred<-predict(neg.maxent,predict)
 plot(InPred)
 points(total.pts)
+pairs(predictors)
+neg.maxent_val <- maxent(predict, data.frame(val.pts)[,1:2],removeDuplicates=TRUE, args=c("betamultiplier=1", "-J", "-P"),
+				path="C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles\\Selected_Model_validation")
+
+
+
+set.seed(2)
+bg <- randomPoints(InPred, 1000)
+
+e1 <- evaluate(neg.maxent, p=val.pts, a=bg, x=predict)
+plot(e1, 'ROC')
+e2 <- evaluate(neg.maxent, p=occ.pts, a=bg, x=predict)
+plot(e2,'ROC')
