@@ -84,10 +84,17 @@ soil<-readOGR(dsn="C:/Users/Nathan/Desktop/Gopher/Environmental Shapefiles/Soil_
 ##read in study area
 
 study_ar<-raster("C:\\Users\\Nathan\\Desktop\\Gopher\\Survey Design\\min_Thresh_stand.asc")
-
+crs(study_ar)<-crs(illinois)
+plot(study_ar)
 land_use<-raster("C:/Users/Nathan/Desktop/Gopher/Environmental Shapefiles/c2016_30m_cdls_84.img")
 crs(land_use)<-crs(illinois)
-land_use_il<-crop(land_use,study_ar)
+land_use_il<-crop(land_use,illinois)
+study_ar<-resample(study_ar,land_use_il)
+land_use_il<-mask(land_use_il,study_ar>0)
+study_ar<-crop(study_ar,land_use_il)
+study_ar
+plot(land_use_il)
+plot(land_use_il)
 land_use_il<-mask(land_use_il,study_ar)
 soil_rast_texture<-as.factor(rasterize(soil,land_use_il,'texdesc'))
 names(soil_rast_texture)<-"Soil Texture"
@@ -112,6 +119,7 @@ plot(slope)
 names(slope)<-"Slope"
 
 predictors <- stack(cr.precip_sd,cr.precip_avg,cr.elev_re,slope,soil_rast_texture,soil_rast_drainage,soil_rast_sand,land_use_il)
+predictors<-mask(predictors,study_ar)
 plot(predictors[[1]])
 ###############################################
 ###############################################
