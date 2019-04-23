@@ -81,16 +81,21 @@ plot(cr.elev)
 predictors
 soil<-readOGR(dsn="C:/Users/Nathan/Desktop/Gopher/Environmental Shapefiles/Soil_trial",layer="SSURGO_IL_Text1")
 
-land_use<-raster("C:/Users/Nathan/Desktop/Gopher/Environmental Shapefiles/c2016_30m_cdls_84.img")
-land_use_il<-crop(land_use,illinois)
+##read in study area
 
+study_ar<-raster("C:\\Users\\Nathan\\Desktop\\Gopher\\Survey Design\\min_Thresh_stand.asc")
+
+land_use<-raster("C:/Users/Nathan/Desktop/Gopher/Environmental Shapefiles/c2016_30m_cdls_84.img")
+crs(land_use)<-crs(illinois)
+land_use_il<-crop(land_use,study_ar)
+land_use_il<-mask(land_use_il,study_ar)
 soil_rast_texture<-as.factor(rasterize(soil,land_use_il,'texdesc'))
 names(soil_rast_texture)<-"Soil Texture"
 soil_rast_drainage<-as.factor(rasterize(soil,land_use_il,'drainagecl'))
 names(soil_rast_drainage)<-"Soil Drainage"
 soil_rast_sand<-rasterize(soil,land_use_il,'sandtotal_')
 names(soil_rast_sand)<-"Soil Sand Percentage"
-plot(land_use_il_re)
+plot(land_use_il)
 #land_use_il_re<-as.factor(resample(land_use_il,cr.elev))
 land_use_il_re<-mask(land_use_il,illinois)
 names(land_use_il_re)<-"Land Cover"
@@ -106,8 +111,8 @@ slope<-terrain(cr.elev_re,opt='slope',unit='degrees',neighbors=8)
 plot(slope)
 names(slope)<-"Slope"
 
-predictors <- stack(cr.precip_sd,cr.precip_avg,cr.elev_re,slope,soil_rast_texture,soil_rast_drainage,soil_rast_sand,land_use_il_re)
-plot(predictors)
+predictors <- stack(cr.precip_sd,cr.precip_avg,cr.elev_re,slope,soil_rast_texture,soil_rast_drainage,soil_rast_sand,land_use_il)
+plot(predictors[[1]])
 ###############################################
 ###############################################
 ###############################################
@@ -181,7 +186,7 @@ plot(illinois)
 ####MAXENT CODE######
 #####################
 names(predictors)
-predictors <- stack(cr.precip_sd,cr.precip_avg,cr.elev_re,slope,soil_rast_texture,soil_rast_drainage,soil_rast_sand,land_use_il_re)
+predictors <- stack(cr.precip_sd,cr.precip_avg,cr.elev_re,slope,soil_rast_texture,soil_rast_drainage,soil_rast_sand,land_use_il)
 reduced.preds <- predictors
 
 reduced.preds
