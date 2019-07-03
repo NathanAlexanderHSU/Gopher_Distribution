@@ -1,0 +1,244 @@
+install.packages("spatstat")
+install.packages("rgdal")
+install.packages("raster")
+install.packages("maptools")
+install.packages("rgeos")
+install.packages("rJava")
+install.packages("sp")
+install.packages("PresenceAbsence")
+install.packages('devtools')
+install.packages('exifr')
+install.packages('dplyr')
+install.packages('leaflet')
+install.packages('tidyverse')
+install.packages('dismo')
+install.packages('prism',dependencies=TRUE)
+require(spatstat)
+require(rgdal)
+require(raster)
+require(maptools)
+require(rgeos)
+require(dismo)
+require(rJava)
+require(sp)
+require(PresenceAbsence)
+library(exifr)
+library(dplyr)
+library(leaflet)
+require(devtools)
+require(prism)
+install.packages('stringi')
+require(stringi)
+require(prism)
+#initial gopher shape files
+??prism
+illinois<-readOGR(dsn="C:/Users/Nathan/Desktop/Gopher/Presence_Only_shapefiles",layer="IL_BNDY_County_Py")
+dev.new()
+plot(illinois)
+
+
+###Predictor Variables
+
+##Predictor variables
+##elevation
+
+elev <- getData('alt', download=TRUE, country='USA', mask=TRUE)
+elev.48 <- elev[[1]]
+
+##Bioclim
+clim.W<-getData('worldclim',var='bio',res=2.5)
+clim<-crop(clim.W,illinois)
+
+##Prism 
+
+
+##have to fix crs (switch to WGS 84) for illinois to mask
+
+crs(illinois)<-crs(prism_2008_18)
+
+plot(illinois)
+
+
+cr.clim<-mask(clim,illinois)
+plot(cr.clim,add=TRUE)
+cr.clim<-resample(cr.clim,cr.elev)
+sd_precip<-calc(cr.clim,sd)
+names(sd_precip)<-"Precipitation SD"
+avg_precip<-calc(cr.clim, mean)
+names(avg_precip)<-"Precipitation Mean"
+plot(avg_precip)
+
+
+cr.elev<-crop(elev.48,illinois)
+cr.elev<-mask(cr.elev,illinois)
+plot(cr.elev)
+##soil
+
+predictors
+soil<-readOGR(dsn="C:/Users/Nathan/Desktop/Gopher/Environmental Shapefiles/Soil_trial",layer="SSURGO_IL_Text1")
+
+
+soil_rast_texture<-as.factor(rasterize(soil,cr.elev,'texdesc'))
+names(soil_rast_texture)<-"Soil Texture"
+soil_rast_drainage<-as.factor(rasterize(soil,cr.elev,'drainagecl'))
+names(soil_rast_drainage)<-"Soil Drainage"
+soil_rast_sand<-rasterize(soil,cr.elev,'sandtotal_')
+names(soil_rast_sand)<-"Soil Sand Percentage"
+
+land_use<-raster("C:/Users/Nathan/Desktop/Gopher/Environmental Shapefiles/c2016_30m_cdls_84.img")
+land_use_il<-crop(land_use,illinois)
+
+land_use_il_re<-as.factor(resample(land_use_il,cr.elev))
+land_use_il_re<-mask(land_use_il_re,illinois)
+names(land_use_il_re)<-"Land Cover"
+cr.precip_sd<-resample(sd_precip,cr.elev)
+cr.precip_avg<-resample(avg_precip,cr.elev)
+plot(land_use_il_re,legend=TRUE)
+names(cr.elev)<-"Elevation"
+
+
+##convert elevation to slope
+slope<-terrain(cr.elev,opt='slope',unit='degrees',neighbors=8)
+plot(slope)
+names(slope)<-"Slope"
+plot(cr.clim[[1]])
+predictors<-stack(cr.clim[[1]],cr.clim[[12]],cr.clim[[15]],cr.elev,slope,soil_rast_texture,soil_rast_sand,land_use_il_re)
+
+predictors <- stack(cr.precip_sd,cr.precip_avg,cr.elev,slope,soil_rast_texture,soil_rast_drainage,soil_rast_sand,land_use_il_re)
+plot(predictors)
+###############################################
+###############################################
+###############################################
+setwd(choose.dir())
+####Occupied Sites
+
+
+sp.occur <- gbif(genus='Taxidea', species='taxus', geo=TRUE,removeZeros=TRUE,ext=illinois)
+
+sp.occur_2000<-sp.occur[which(sp.occur$year>=2000),]
+
+gbif_sp<-SpatialPoints(cbind(sp.occur_2000$lon,sp.occur_200$lat))
+points(gbif_sp)
+total.pts<-gbif_sp
+##Driving Survey
+
+#####################
+####MAXENT CODE######
+#####################
+names(predictors)
+predictors <- stack(cr.precip_sd,cr.precip_avg,cr.elev,slope,soil_rast_texture,soil_rast_drainage,soil_rast_sand,land_use_il_re)
+reduced.preds <- predictors
+
+reduced.preds
+crs(illinois)<-crs(predictors)
+crs(total.pts)<-crs(predictors)
+total.pts <- gIntersection(total.pts, illinois, byid=TRUE)
+
+#set a seed to do a random selection of 75% of the data
+set.seed(1)
+
+#create a vector of all the pts
+pt_total<-as.vector(1:length(total.pts))
+
+#create the training and testing data
+
+pt_train<-sample(pt_total,3*length(pt_total)/4,replace=FALSE)
+pt_test<-pt_total[-pt_train]
+
+occ.pts<-total.pts
+val.pts<-total.pts[pt_test,]
+
+plot(illinois)
+points(occ.pts,col='red')
+points(val.pts)
+
+#beta.parameters<-1 # Create a vector of all the beta paremeters
+beta.parameters <- c(1:4)
+
+for(i in beta.parameters){
+  print(paste("Run Maxent with", i, "as the beta parameter"))
+}
+plot(predictors)
+all.combos <- list()
+predictors<-reduced.preds
+pred.num <- nlayers(predictors)
+for(i in 2:pred.num){
+  all.combos <- c(all.combos, combn(1:pred.num, i, simplify=FALSE))
+}
+all.combos
+
+neg.maxent <- maxent(predictors, data.frame(occ.pts)[,1:2],removeDuplicates=TRUE, args=c("betamultiplier=1", "-J", "-P"),
+				path="C:\\Users\\Nathan\\Desktop\\Badger")
+
+
+
+for(i in beta.parameters){ # Create a loop for each beta parameter
+  for(j in 1:length(all.combos)){
+output.dir <- paste("C:\\Users\\Nathan\\Desktop\\Badger\\MaxEnt\\b", i, ".", 
+                        paste(all.combos[[j]], collapse=''), sep="")   
+print(output.dir)
+
+model <- maxent(predictors[[all.combos[[j]]]], data.frame(occ.pts),
+                    args=c(paste("betamultiplier=", i, sep=""), "outputformat=raw"),
+                           path=output.dir)
+    max.results <- dismo::predict(model, predictors[[all.combos[[j]]]])
+    writeRaster(max.results, paste(output.dir, "/maxent.asc", sep=""),
+                format="ascii")
+    print(paste(j, " of ", length(all.combos), ": ", Sys.time(), sep=""))
+  }
+  
+}
+name <- rep("taxidea",nrow(data.frame(occ.pts)))
+#have to subset longitude and latitude column based on INHS or GBIF data
+class(occ.pts)
+occ.pts
+Long<-coordinates(occ.pts)[,1]
+
+Lat<-coordinates(occ.pts)[,2]
+points(Long,Lat,col="blue")
+
+enmtools.occpts <- data.frame(name, Long, Lat)
+colnames(enmtools.occpts) <- c("Species", "X", "Y")
+write.csv(enmtools.occpts,"C:\\Users\\Nathan\\Desktop\\Badger\\MaxEnt\\taxidea.csv" , row.names=FALSE)
+
+setwd("C:\\Users\\Nathan\\Desktop\\Badger\\MaxEnt")
+
+dirs <- list.files()
+dirs
+
+models <- NULL
+for(i in 1:length(dirs)){
+  models[i] <- paste("C:\\Users\\Nathan\\Desktop\\Badger\\MaxEnt\\taxidea.csv,",
+				"C:\\Users\\Nathan\\Desktop\\Badger\\MaxEnt\\",dirs[i], 
+			"\\maxent.asc,C:\\Users\\Nathan\\Desktop\\Badger\\MaxEnt\\", dirs[i],
+                    "\\species.lambdas", sep="")
+}
+
+write.csv(models, "C:\\Users\\Nathan\\Desktop\\Badger\\MaxEnt\\maxent_models.csv", row.names=FALSE, quote=FALSE, col.names=FALSE)
+occ.pts
+predictors
+predict<-stack(predictors[[2:3]],predictors[[5:6]])
+neg.maxent <- maxent(predict, data.frame(occ.pts)[,1:2],removeDuplicates=TRUE, args=c("betamultiplier=1", "-J", "-P"),
+				path="C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles\\Selected_Model")
+
+
+InPred<-predict(neg.maxent,predict)
+plot(InPred)
+points(total.pts)
+pairs(predictors)
+neg.maxent_val <- maxent(predict, data.frame(val.pts)[,1:2],removeDuplicates=TRUE, args=c("betamultiplier=1", "-J", "-P"),
+				path="C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles\\Selected_Model_validation")
+
+
+
+set.seed(2)
+bg <- randomPoints(InPred, 1000)
+
+e1 <- evaluate(neg.maxent, p=val.pts, a=bg, x=predict)
+plot(e1, 'ROC')
+e2 <- evaluate(neg.maxent, p=occ.pts, a=bg, x=predict)
+plot(e2,'ROC')
+writeRaster(InPred,"C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles\\Selected_Model\\geomys_75.asc",format="ascii",overwrite=TRUE)
+threshold(e1)
+pairs(predictors)
+pairs(predict)
