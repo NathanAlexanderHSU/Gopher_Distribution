@@ -248,24 +248,58 @@ for(i in 2:pred.num){
   all.combos <- c(all.combos, combn(1:pred.num, i, simplify=FALSE))
 }
 all.combos
-
+predictors
 neg.maxent <- maxent(predictors, factors=c("Soil.Texture","Soil.Drainage","Land.Cover"), data.frame(occ.pts)[,1:2],removeDuplicates=TRUE, args=c("betamultiplier=1", "-J", "-P"),
 				path="C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles\\Trials")
 
-
-
+all.combos
+predictors
 for(i in beta.parameters){ # Create a loop for each beta parameter
   for(j in 1:length(all.combos)){
 output.dir <- paste("C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles\\MaxEnt_2019_thin1_T2\\b", i, ".", 
                         paste(all.combos[[j]], collapse=''), sep="")   
 print(output.dir)
 
+if(5 %in% all.combos[[j]]){
+	if(6 %in% all.combos[[j]]){
+		if(8 %in% all.combos[[j]]){ 
+			model <- maxent(predictors[[all.combos[[j]]]],factors=c("Soil.Texture","Soil.Drainage","Land.Cover"), data.frame(occ.pts),
+                    	args=c(paste("betamultiplier=", i, sep=""), "outputformat=raw"),
+                        path=output.dir)
+	
+			}
+	if(8 %in% all.combos[[j]]){ 
+		model <- maxent(predictors[[all.combos[[j]]]],factors=c("Soil.Texture","Land.Cover"), data.frame(occ.pts),
+                 	args=c(paste("betamultiplier=", i, sep=""), "outputformat=raw"),
+                  path=output.dir)
+	
+		}
+	}
+
+if(6 %in% all.combos[[j]]){
+		if(8 %in% all.combos[[j]]){ 
+			model <- maxent(predictors[[all.combos[[j]]]],factors=c("Soil.Drainage","Land.Cover"), data.frame(occ.pts),
+                    	args=c(paste("betamultiplier=", i, sep=""), "outputformat=raw"),
+                        path=output.dir)
+	
+			}
+	}
+if(8 %in% all.combos[[j]]){ 
+		model <- maxent(predictors[[all.combos[[j]]]],factors="Land.Cover", data.frame(occ.pts),
+                 	args=c(paste("betamultiplier=", i, sep=""), "outputformat=raw"),
+                  path=output.dir)
+	
+		}
+	}
+
 model <- maxent(predictors[[all.combos[[j]]]], data.frame(occ.pts),
-                    args=c(paste("betamultiplier=", i, sep=""), "outputformat=raw"),
-                           path=output.dir)
+             args=c(paste("betamultiplier=", i, sep=""), "outputformat=raw"),
+             path=output.dir)
+
     max.results <- dismo::predict(model, predictors[[all.combos[[j]]]])
     writeRaster(max.results, paste(output.dir, "/maxent.asc", sep=""),
                 format="ascii")
+
     print(paste(j, " of ", length(all.combos), ": ", Sys.time(), sep=""))
   }
   
