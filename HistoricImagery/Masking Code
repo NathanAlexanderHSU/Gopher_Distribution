@@ -1,0 +1,17 @@
+require(rgdal)
+require(raster)
+
+setwd('C:\\Users\\nba2\\Desktop\\shapefiles\\Image Polygons')
+all_files<-list.files(pattern='\\.shp$')
+all_files<-sub('\\.shp$', '', all_files) 
+all_files
+for(i in 1:length(all_files)){
+    
+  shape<-readOGR(dsn='C:\\Users\\nba2\\Desktop\\shapefiles\\Image Polygons',
+                 layer=all_files[i])
+  rast<-raster(paste0('C:\\Users\\nba2\\Desktop\\shapefiles\\Completed\\',all_files[i],'.tif'))
+  mask_rast<-mask(rast,shape)
+  writeRaster(mask_rast,paste0("C:\\Users\\nba2\\Desktop\\shapefiles\\clipped_aerial\\"
+                               ,all_files[i],'.tif'),overwrite=TRUE)
+}
+                                                                                  
