@@ -1,0 +1,368 @@
+
+
+###Post driving survey Maxent
+install.packages("spatstat")
+install.packages("rgdal")
+install.packages("raster")
+install.packages("maptools")
+install.packages("rgeos")
+install.packages("rJava")
+install.packages("sp")
+install.packages("PresenceAbsence")
+install.packages('devtools')
+install.packages('exifr')
+install.packages('dplyr')
+install.packages('leaflet')
+install.packages('tidyverse')
+install.packages('dismo')
+install.packages('prism',dependencies=TRUE)
+install.packages('spThin')
+require(spThin)
+require(spatstat)
+require(rgdal)
+require(raster)
+require(maptools)
+require(rgeos)
+require(dismo)
+require(rJava)
+require(sp)
+require(PresenceAbsence)
+library(exifr)
+library(dplyr)
+library(leaflet)
+require(devtools)
+require(prism)
+install.packages('stringi')
+require(stringi)
+require(prism)
+install.packages('sf')
+require(sf)
+
+##initial gopher shape files
+#illinois<-readOGR(dsn="C:/Users/Nathan/Desktop/Gopher/Presence_Only_shapefiles",layer="IL_BNDY_County_Py")
+illinois<-readOGR(dsn='C:\\Users\\Nathan\\Desktop\\Gopher\\Political Boundaries\\Hoffman Range',layer='Geomys_HoffmanRange_Buffer')
+plot(illinois)
+
+
+###Predictor Variables
+
+##elevation
+
+elev <- getData('alt', download=TRUE, country='USA', mask=TRUE)
+elev.48 <- elev[[1]]
+crs(elev.48)
+
+
+##Prism---we can read in the Raster Stack that we've already created
+
+#ann_precip<-get_prism_annual(type='ppt', years=2008:2018)
+#list_prism<-ls_prism_data(absPath = FALSE, name = FALSE)
+#prism_2008_18<-prism_stack(list_prism)
+
+#have to fix crs (switch to WGS 84) for illinois to mask
+
+#prism_84 <- projectRaster(prism_2008_18,elev.48)
+
+#read in the raster stack we created
+prism_84<-stack("C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles\\PRISM_Raster\\Prism_84.tif")
+
+##crop the raster stack to be just Illinois
+cr.clim<-crop(prism_84,illinois)
+cr.clim<-mask(cr.clim,illinois)
+
+##calculate the standard deviation of precip
+sd_precip<-calc(cr.clim,sd)
+names(sd_precip)<-"Precipitation SD"
+
+##calculate the mean precip
+avg_precip<-calc(cr.clim, mean)
+names(avg_precip)<-"Precipitation Mean"
+
+##crop elevation to illinois
+cr.elev<-crop(elev.48,illinois)
+cr.elev<-mask(cr.elev,illinois)
+names(cr.elev)<-"Elevation"
+
+##soil
+
+soil<-readOGR(dsn="C:/Users/Nathan/Desktop/Gopher/Environmental Shapefiles/Soil_trial",layer="SSURGO_IL_Text1")
+
+##Use texture, drainage, and sand percentage as predictors
+
+soil_rast_texture<-rasterize(soil,cr.elev,'texdesc')
+names(soil_rast_texture)<-"Soil Texture"
+soil_rast_texture<-mask(soil_rast_texture,illinois)
+soil_rast_drainage<-as.factor(rasterize(soil,cr.elev,'drainagecl'))
+names(soil_rast_drainage)<-"Soil Drainage"
+soil_rast_drainage<-mask(soil_rast_drainage,illinois)
+soil_rast_sand<-rasterize(soil,cr.elev,'sandtotal_')
+names(soil_rast_sand)<-"Soil Sand Percentage"
+soil_rast_sand<-mask(soil_rast_sand,illinois)
+##read in landcover type
+
+land_use<-raster("C:/Users/Nathan/Desktop/Gopher/Environmental Shapefiles/c2016_30m_cdls_84.img")
+
+land_use_il<-crop(land_use,illinois)
+
+##resample to the 800m resolution of elevation
+
+#use 'ngb' for nearest neighbor. Must use this for categorical values
+
+land_use_il_re<-resample(land_use_il,cr.elev,method='ngb')
+
+land_use_il_re<-mask(land_use_il_re,illinois)
+
+names(land_use_il_re)<-"Land Cover"
+
+cr.precip_sd<-resample(sd_precip,cr.elev)
+cr.precip_avg<-resample(avg_precip,cr.elev)
+
+##convert elevation to slope
+slope<-terrain(cr.elev,opt='slope',unit='degrees',neighbors=8)
+names(slope)<-"Slope"
+
+predictors <- stack(cr.precip_sd,cr.precip_avg,cr.elev,slope,soil_rast_texture,soil_rast_drainage,soil_rast_sand,land_use_il_re)
+
+plot(predictors)
+###############################################
+###############################################
+###############################################
+#setwd(choose.dir())
+####Occupied Sites
+
+#Pilot points
+#pilot<-readOGR(dsn="C:/Users/Nathan/Desktop/Gopher/Presence_Only_shapefiles",layer="Pilot_occuppied")
+#pilot_sp<-SpatialPoints(pilot)
+#pilot_sp
+
+#Presence-absence present points
+#PA<-readOGR(dsn="C:/Users/Nathan/Desktop/Gopher/Presence_Only_shapefiles",layer="PA_Survey_occuppied")
+#PA_sp<-SpatialPoints(PA)
+#PA_sp
+#Bluet Points
+#library(exifr)
+#library(dplyr)
+#library(leaflet)
+#setwd("C:\\Users\\Nathan\\Desktop\\Gopher\\Bluett Photos")
+#files<-list.files()
+#files
+#dat <- exifr::read_exif(files)
+
+#Bluett_coords<-cbind(dat$FileName,dat$GPSLongitude,dat$GPSLatitude)
+
+#remove the ones without a geotag
+#Bluett_coords<-rbind(Bluett_coords[1:33,],Bluett_coords[40:50,],Bluett_coords[52:75,])
+
+#B_pres<-cbind(as.vector(Bluett_coords[,2]),as.vector(Bluett_coords[,3]))
+
+###need to truncate the coordinates from the Bluett Photos
+
+#presence_only_x<-round(as.numeric(B_pres[,1]), digits = 6)
+#presence_only_y<-round(as.numeric(B_pres[,2]), digits = 6)
+#Bluet_df<-cbind(presence_only_x,presence_only_y)
+
+#make into a spatial points data frame
+#Bluet_sp<-SpatialPoints(Bluet_df)
+#Bluet_sp
+##get Gbif occurrences
+
+#sp.occur <- gbif(genus='Geomys', species='bursarius', geo=TRUE,removeZeros=TRUE,ext=illinois)
+
+#sp.occur_2008<-sp.occur[which(sp.occur$year>=2008),]
+
+#gbif_sp<-SpatialPoints(cbind(sp.occur_2008$lon,sp.occur_2008$lat))
+
+##Driving Survey
+
+#drive<-read.csv("C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles\\Driving_survey.csv")
+#drive_lon<-drive[1:74,4]
+#drive_lat<-drive[1:74,3]
+#drive_lon<-round(as.numeric(as.character(drive[1:74,4])), digits = 6)
+#drive_lat<-round(as.numeric(as.character(drive[1:74,3])), digits = 6)
+#drive_sp<-SpatialPoints(cbind(drive_lon,drive_lat))
+#drive_sp
+###merge all the spatial presences of post 2010
+
+#presence_only<-SpatialPoints(rbind(drive_sp,gbif_sp,Bluet_sp,pilot_sp,PA_sp))
+#total.pts<-presence_only
+
+#total.pts<-SpatialPointsDataFrame(total.pts,data=data.frame(coordinates(total.pts)))
+#writeOGR(obj=total.pts, dsn="C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles", layer="TotalPts_Aug2019", driver="ESRI Shapefile") # this is in geographical projection
+
+#Read in aggregated data source
+total.pts<-readOGR("C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles", layer="TotalPts_Aug2019")
+
+plot(illinois)
+points(total.pts)
+
+####### Read in original raster if you want to clip to it
+#original_raster<-raster("C:\\Users\\Nathan\\Desktop\\Gopher\\Survey Design\\Min_Thresh_stand.asc")
+
+#####################
+####MAXENT CODE######
+#####################
+names(predictors)
+reduced.preds <- predictors
+
+reduced.preds
+crs(illinois)<-crs(predictors)
+crs(total.pts)<-crs(predictors)
+illinois
+total.pts
+total.pts <- gIntersection(total.pts, illinois, byid=TRUE)
+pts_df<-coordinates(total.pts)
+total.pts
+dim(pts_df)
+thinned_pts<-thin.algorithm(pts_df,thin.par=1,rep=5)
+thinned_pts[[1]]
+plot(illinois)
+points(thinned_pts[[1]],pch=17)
+points(thinned_pts[[2]],pch=17,col='red')
+dim(thinned_pts[[1]])[1]
+#set a seed to do a random selection of 75% of the data
+set.seed(1)
+
+#create a vector of all the pts
+for( i in 1:5)
+pt_total<-as.vector(1:dim(thinned_pts[[1]])[1])
+
+#create the training and testing data
+pt_total
+
+pt_train_1<-sample(pt_total,3*length(pt_total)/4,replace=FALSE)
+pt_test<-pt_total[-pt_train_1]
+
+occ.pts<-total.pts[pt_train_1,]
+
+val.pts<-total.pts[pt_test,]
+
+plot(illinois)
+points(occ.pts,col='red')
+points(val.pts)
+
+names(predictors)
+#beta.parameters<-1 # Create a vector of all the beta paremeters
+beta.parameters <- c(1,2)
+
+for(i in beta.parameters){
+  print(paste("Run Maxent with", i, "as the beta parameter"))
+}
+plot(predictors)
+all.combos <- list()
+predictors<-reduced.preds
+pred.num <- nlayers(predictors)
+for(i in 2:pred.num){
+  all.combos <- c(all.combos, combn(1:pred.num, i, simplify=FALSE))
+}
+all.combos
+predictors
+neg.maxent <- maxent(predictors, factors=c("Soil.Texture","Land.Cover"), data.frame(occ.pts)[,1:2],removeDuplicates=TRUE, args=c("betamultiplier=1", "-J", "-P"),
+				path="C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles\\Trials")
+
+all.combos
+predictors
+for(i in beta.parameters){ # Create a loop for each beta parameter
+  for(j in 1:length(all.combos)){
+output.dir <- paste("C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles\\MaxEnt_2019_thin1_T2_Hoffman\\b", i, ".", 
+                        paste(all.combos[[j]], collapse=''), sep="")   
+print(output.dir)
+
+if(5 %in% all.combos[[j]]){
+	if(8 %in% all.combos[[j]]){
+		model <- maxent(predictors[[all.combos[[j]]]],factors=c("Soil.Texture","Land.Cover"), data.frame(occ.pts),
+            	args=c(paste("betamultiplier=", i, sep=""), "outputformat=raw"),
+                  path=output.dir)
+	
+			}
+	model <- maxent(predictors[[all.combos[[j]]]],factors=c("Soil.Texture"), data.frame(occ.pts),
+            	args=c(paste("betamultiplier=", i, sep=""), "outputformat=raw"),
+                  path=output.dir)
+
+		}
+
+if(8 %in% all.combos[[j]]){ 
+		model <- maxent(predictors[[all.combos[[j]]]],factors="Land.Cover", data.frame(occ.pts),
+                 	args=c(paste("betamultiplier=", i, sep=""), "outputformat=raw"),
+                  path=output.dir)
+	
+		}
+
+model <- maxent(predictors[[all.combos[[j]]]], data.frame(occ.pts),
+             args=c(paste("betamultiplier=", i, sep=""), "outputformat=raw"),
+             path=output.dir)
+
+    max.results <- dismo::predict(model, predictors[[all.combos[[j]]]])
+    writeRaster(max.results, paste(output.dir, "/maxent.asc", sep=""),
+                format="ascii")
+
+    print(paste(j, " of ", length(all.combos), ": ", Sys.time(), sep=""))
+  }
+  
+}
+name <- rep("geomys",nrow(data.frame(occ.pts)))
+#have to subset longitude and latitude column based on INHS or GBIF data
+class(occ.pts)
+occ.pts
+Long<-coordinates(occ.pts)[,1]
+
+Lat<-coordinates(occ.pts)[,2]
+points(Long,Lat,col="blue")
+
+enmtools.occpts <- data.frame(name, Long, Lat)
+colnames(enmtools.occpts) <- c("Species", "X", "Y")
+write.csv(enmtools.occpts,"C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles\\MaxEnt_2019_thin1_T2_Hoffman\\geomys.csv" , row.names=FALSE)
+
+setwd("C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles\\MaxEnt_2019_thin1_T2_Hoffman")
+
+dirs <- list.files()
+dirs
+
+models <- NULL
+for(i in 1:length(dirs)){
+  models[i] <- paste("C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles\\MaxEnt_2019_thin1_T2_Hoffman\\geomys.csv,",
+				"C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles\\MaxEnt_2019_thin1_T2_Hoffman\\",dirs[i], 
+			"\\maxent.asc,C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles\\MaxEnt_2019_thin1_T2_Hoffman\\", dirs[i],
+                    "\\species.lambdas", sep="")
+}
+
+write.csv(models, "C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles\\MaxEnt_2019_thin1_T2_Hoffman\\maxent_models.csv", row.names=FALSE, quote=FALSE, col.names=FALSE)
+write.csv(occ.pts,"Train_pts.csv")
+write.csv(val.pts,"Test_pts.csv")
+
+occ.pts
+
+pred<-stack(predictors[[3]],predictors[[5:7]])
+pred<-predictors
+neg.maxent <- maxent(pred, factors=c("Soil.Texture"), data.frame(occ.pts),removeDuplicates=TRUE, args=c("betamultiplier=1", "-J", "-P"),
+				path="C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles\\Selected_Model_Hoffman")
+
+class(neg.maxent)
+plot(illinois)
+InPred<-dismo::predict(neg.maxent,pred)
+plot(InPred)
+points(total.pts)
+points(val.pts,pch=17,col='red')
+pairs(predictors)
+neg.maxent_val <- maxent(pred, factors=c("Soil.Texture"), data.frame(val.pts),removeDuplicates=TRUE, args=c("betamultiplier=1", "-J", "-P"),
+				path="C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles\\Selected_Model_validation_Hoffman")
+
+
+InPred_val<-dismo::predict(neg.maxent_val,pred)
+plot(InPred_val)
+dev.new()
+plot(InPred)
+plot(predictors)
+set.seed(2)
+bg <- randomPoints(InPred, 1000)
+
+e1 <- evaluate(neg.maxent, p=val.pts, a=bg, x=pred)
+e2
+dev.new()
+plot(e1, 'ROC')
+e2 <- evaluate(neg.maxent, p=occ.pts, a=bg, x=pred)
+dev.new()
+plot(e2,'ROC')
+writeRaster(InPred,"C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles\\Selected_Model_Hoffman\\geomys_75.asc",format="ascii",overwrite=TRUE)
+threshold(e2)
+pairs(predictors)
+pairs(predict)
