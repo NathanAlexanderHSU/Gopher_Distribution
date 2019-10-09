@@ -237,8 +237,8 @@ occ.pts<-total.pts[pt_train_1,]
 val.pts<-total.pts[pt_test,]
 
 plot(illinois)
-points(occ.pts,col='red')
-points(val.pts)
+points(occ.pts,pch=17, col='red')
+points(val.pts,pch=17)
 
 names(predictors)
 #beta.parameters<-1 # Create a vector of all the beta paremeters
@@ -333,8 +333,14 @@ occ.pts
 
 pred<-stack(predictors[[3]],predictors[[5:7]])
 pred<-predictors
+pred
+
 neg.maxent <- maxent(pred, factors=c("Soil.Texture"), data.frame(occ.pts),removeDuplicates=TRUE, args=c("betamultiplier=1", "-J", "-P"),
-				path="C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles\\Selected_Model_Hoffman")
+				path="C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles\\Selected_Model_Hoffman_replicates")
+
+
+#neg.maxent <- maxent(pred, factors=c("Soil.Texture"), data.frame(total.pts),removeDuplicates=TRUE, args=c("betamultiplier=1", "-J", "-P","replicates=10"),
+#				path="C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles\\Selected_Model_Hoffman_replicates")
 
 class(neg.maxent)
 plot(illinois)
