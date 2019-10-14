@@ -15,6 +15,8 @@ install.packages('tidyverse')
 install.packages('dismo')
 install.packages('prism',dependencies=TRUE)
 install.packages('spThin')
+install.packages('stringi')
+install.packages('sf')
 require(spThin)
 require(spatstat)
 require(rgdal)
@@ -30,27 +32,44 @@ library(dplyr)
 library(leaflet)
 require(devtools)
 require(prism)
-install.packages('stringi')
 require(stringi)
 require(prism)
-install.packages('sf')
 require(sf)
 
+###Download MaxEnt here: https://biodiversityinformatics.amnh.org/open_source/maxent/
+###move the 'maxent.jar' file from the download into the dismo package 'Java' folder
+
+##############################################
+##############################################
+##############################################
+
+### First, get the extent and map you want to limit the study to
 ##initial gopher shape files
+##This will be the area which we will crop and mask the predictor layers to
+
 illinois<-readOGR(dsn="C:/Users/Nathan/Desktop/Gopher/Presence_Only_shapefiles",layer="IL_BNDY_County_Py")
+
+#ensure that it read correctly
 plot(illinois)
 
-
+############################################
+############################################
+###Next, we want to read in our predictor layers
 ###Predictor Variables
 
-##elevation
+
+############################################
+##elevation-this is from the dismo package 
 
 elev <- getData('alt', download=TRUE, country='USA', mask=TRUE)
 elev.48 <- elev[[1]]
 crs(elev.48)
 
-
+############################################
 ##Prism---we can read in the Raster Stack that we've already created
+
+
+#This following is to read in PRISM data from the prism package. You can select the type of data and the years you want data from
 
 #ann_precip<-get_prism_annual(type='ppt', years=2008:2018)
 #list_prism<-ls_prism_data(absPath = FALSE, name = FALSE)
@@ -61,6 +80,8 @@ crs(elev.48)
 #prism_84 <- projectRaster(prism_2008_18,elev.48)
 
 #read in the raster stack we created
+
+#becuase I've already processed the PRISM data, we can read in directly the stack
 prism_84<-stack("C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles\\PRISM_Raster\\Prism_84.tif")
 
 ##crop the raster stack to be just Illinois
@@ -80,7 +101,8 @@ cr.elev<-crop(elev.48,illinois)
 cr.elev<-mask(cr.elev,illinois)
 names(cr.elev)<-"Elevation"
 
-##soil
+######################################
+##soil-from SSURGO dataset
 
 soil<-readOGR(dsn="C:/Users/Nathan/Desktop/Gopher/Environmental Shapefiles/Soil_trial",layer="SSURGO_IL_Text1")
 
@@ -93,7 +115,9 @@ names(soil_rast_drainage)<-"Soil Drainage"
 soil_rast_sand<-rasterize(soil,cr.elev,'sandtotal_')
 names(soil_rast_sand)<-"Soil Sand Percentage"
 
-##read in landcover type
+
+###################################################
+##read in landcover type-cropland data layer from USDA NASS
 
 land_use<-raster("C:/Users/Nathan/Desktop/Gopher/Environmental Shapefiles/c2016_30m_cdls_84.img")
 
@@ -125,16 +149,23 @@ plot(predictors)
 #setwd(choose.dir())
 ####Occupied Sites
 
-#Pilot points
+##This project started out as a presence-absence study, but due to limited presences, we switched to a presence-pseudoabsence framework
+#below is reading in all the presences we recorded
+
+##############################################
+#Pilot survey presences
 #pilot<-readOGR(dsn="C:/Users/Nathan/Desktop/Gopher/Presence_Only_shapefiles",layer="Pilot_occuppied")
 #pilot_sp<-SpatialPoints(pilot)
 #pilot_sp
 
-#Presence-absence present points
+##############################################
+#Presence-absence survey presences
 #PA<-readOGR(dsn="C:/Users/Nathan/Desktop/Gopher/Presence_Only_shapefiles",layer="PA_Survey_occuppied")
 #PA_sp<-SpatialPoints(PA)
 #PA_sp
-#Bluet Points
+
+#############################################
+#Bluet Points-a retired IDNR person sent us geo-referenced photos. This code is used to extract coordinates
 #library(exifr)
 #library(dplyr)
 #library(leaflet)
@@ -159,15 +190,22 @@ plot(predictors)
 #make into a spatial points data frame
 #Bluet_sp<-SpatialPoints(Bluet_df)
 #Bluet_sp
-##get Gbif occurrences
+
+############################################
+##we can now download all presence points available via the Global Biodiversity Information facility
 
 #sp.occur <- gbif(genus='Geomys', species='bursarius', geo=TRUE,removeZeros=TRUE,ext=illinois)
+
+#restrict the occurrences to be within the past 10 years
 
 #sp.occur_2008<-sp.occur[which(sp.occur$year>=2008),]
 
 #gbif_sp<-SpatialPoints(cbind(sp.occur_2008$lon,sp.occur_2008$lat))
 
-##Driving Survey
+
+############################################
+##Driving Survey-due to the low number of presences from the presence-absence survey, we conducted driving surveys in
+## 2018 to locate gopher mounds
 
 #drive<-read.csv("C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles\\Driving_survey.csv")
 #drive_lon<-drive[1:74,4]
@@ -176,14 +214,19 @@ plot(predictors)
 #drive_lat<-round(as.numeric(as.character(drive[1:74,3])), digits = 6)
 #drive_sp<-SpatialPoints(cbind(drive_lon,drive_lat))
 #drive_sp
-###merge all the spatial presences of post 2010
+
+##############################################
+###merge all the spatial presences of post 2008- this will create one file of presencee points
 
 #presence_only<-SpatialPoints(rbind(drive_sp,gbif_sp,Bluet_sp,pilot_sp,PA_sp))
 #total.pts<-presence_only
 
 #total.pts<-SpatialPointsDataFrame(total.pts,data=data.frame(coordinates(total.pts)))
+
+#write the total presence points to a file so we can read directly in for future analyses
 #writeOGR(obj=total.pts, dsn="C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles", layer="TotalPts_Aug2019", driver="ESRI Shapefile") # this is in geographical projection
 
+###############################################
 #Read in aggregated data source
 total.pts<-readOGR("C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles", layer="TotalPts_Aug2019")
 
@@ -193,20 +236,38 @@ points(total.pts)
 ####### Read in original raster if you want to clip to it
 #original_raster<-raster("C:\\Users\\Nathan\\Desktop\\Gopher\\Survey Design\\Min_Thresh_stand.asc")
 
-#####################
+#############################################
+############################################
+############################################
+
 ####MAXENT CODE######
-#####################
+
+#make sure that your predictors are accurate
 names(predictors)
 reduced.preds <- predictors
 
-reduced.preds
+################################
+#make sure the crs is all the same. All of these files were WGS 84, so did not 
+#reproject them. If they are in different coordinate systems, use a project function
+
 crs(illinois)<-crs(predictors)
 crs(total.pts)<-crs(predictors)
+
+##################################
+##################################
+##Occurence point data manipulation
+###make sure that you're only looking at occurrences in illinois. Sometimes GBIF pulls a few from Missouri
 total.pts <- gIntersection(total.pts, illinois, byid=TRUE)
+#create a data frame of the coordinates
 pts_df<-coordinates(total.pts)
 
-dim(pts_df)
-thinned_pts<-thin.algorithm(pts_df,thin.par=5,rep=5)
+######################################
+#Now thin the coordinates to a selected number of bins and a reasonable distance
+#here, I thinned the data at 1 km 5 times
+thinned_pts<-thin.algorithm(pts_df,thin.par=1,rep=5)
+
+#visualize the thinned data-I'm just using the first thinning run
+
 thinned_pts[[1]]
 plot(illinois)
 points(thinned_pts[[1]],pch=17)
@@ -215,50 +276,74 @@ length(thinned_pts[[1]])
 #set a seed to do a random selection of 75% of the data
 set.seed(1)
 
-#create a vector of all the pts
+########################################
+##Next we will create a training and test dataset
+
+#create a vector of all the pts from the first thinned run
 for( i in 1:5)
 pt_total<-as.vector(1:length(thinned_pts[[1]]))
 
-#create the training and testing data
-pt_total
-
+#We can now subsample to create a 75% training dataset and a 25% testing dataset
 pt_train_1<-sample(pt_total,3*length(pt_total)/4,replace=FALSE)
 pt_test<-pt_total[-pt_train_1]
 
+#Select the occupied points that are the training data
 occ.pts<-total.pts[pt_train_1,]
 
+#Select the occupied points that are the testing data (validation data)
 val.pts<-total.pts[pt_test,]
 
+#Visualize the output
 plot(illinois)
 points(occ.pts,col='red')
 points(val.pts)
 
-names(predictors)
-#beta.parameters<-1 # Create a vector of all the beta paremeters
+##############################################
+##############################################
+##Model creation
+# Create a vector of all the beta paremeters. Beta parameters are a smoothing option for MaxEnt to prevent overfitting
 beta.parameters <- c(1,2)
+
+#Make sure that you will run the correct beta parameters
 
 for(i in beta.parameters){
   print(paste("Run Maxent with", i, "as the beta parameter"))
 }
-plot(predictors)
+
+##Now, we will create the candidate models. We will analyze all combination of parameters with all beta parameters
 all.combos <- list()
-predictors<-reduced.preds
 pred.num <- nlayers(predictors)
+#There must be 2 layers in each model at least for maxent to run
+
 for(i in 2:pred.num){
   all.combos <- c(all.combos, combn(1:pred.num, i, simplify=FALSE))
 }
+
+#ensure that all the models will be run 
 all.combos
-predictors
-neg.maxent <- maxent(predictors, factors=c("Soil.Texture","Soil.Drainage","Land.Cover"), data.frame(occ.pts)[,1:2],removeDuplicates=TRUE, args=c("betamultiplier=1", "-J", "-P"),
+
+#Run a trial to ensure that everything is working correctly before the for-loop
+#Label your categorical predictors as factors
+#We will have a smoothing parameter of 1 (none) and will do a jackknife, print the plots, and have 10 replicates of cross validation
+neg.maxent <- maxent(predictors, factors=c("Soil.Texture","Land.Cover"), data.frame(occ.pts)[,1:2],removeDuplicates=TRUE, args=c("betamultiplier=1", "-J", "-P", "replicates=10"),
 				path="C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles\\Trials")
 
-all.combos
-predictors
-for(i in beta.parameters){ # Create a loop for each beta parameter
+#########################################
+#Once you make sure that everything is working well, you can then do a for-loop
+#note that in the code, we are not doing jackknife, plots, nor replicates per run. This will make things faster
+
+# Create a loop for each beta parameter
+for(i in beta.parameters){ 
+#create another for-loop for each combination of parameters
   for(j in 1:length(all.combos)){
+#create the directory where each run will be stored. This labels the folders based on the beta parameter
+#followed by the included predictor variables
 output.dir <- paste("C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles\\MaxEnt_2019_thin1_T2\\b", i, ".", 
                         paste(all.combos[[j]], collapse=''), sep="")   
 print(output.dir)
+
+#create if statements for all the categorical variables. If they are included in the c
+#combindation of predictors, they will be assigned as a factor in the model
 
 if(5 %in% all.combos[[j]]){
 	if(6 %in% all.combos[[j]]){
@@ -304,62 +389,98 @@ model <- maxent(predictors[[all.combos[[j]]]], data.frame(occ.pts),
   }
   
 }
+
+########################################
+########################################
+########################################
+
+#Model Selection- we will create output data for ENMTools to do model selection
+
+# need the list of occurence data points with species ID
 name <- rep("geomys",nrow(data.frame(occ.pts)))
 #have to subset longitude and latitude column based on INHS or GBIF data
-class(occ.pts)
-occ.pts
 Long<-coordinates(occ.pts)[,1]
 
 Lat<-coordinates(occ.pts)[,2]
+
+#make sure that points are assigned correctly
+plot(illinois)
 points(Long,Lat,col="blue")
 
+#compile and write the species 
 enmtools.occpts <- data.frame(name, Long, Lat)
 colnames(enmtools.occpts) <- c("Species", "X", "Y")
 write.csv(enmtools.occpts,"C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles\\MaxEnt_2019_thin1_T2\\geomys.csv" , row.names=FALSE)
 
+######################################
+#Now we need to read all the file locations for where we wrote the MaxEnt output
+
 setwd("C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles\\MaxEnt_2019_thin1_T2")
 
 dirs <- list.files()
-dirs
+
+##Now we will create a csv that has file paths for the species occurrence file, and for each maxent asc file and each species lambda files
 
 models <- NULL
 for(i in 1:length(dirs)){
-  models[i] <- paste("C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles\\MaxEnt_2019\\geomys.csv,",
+  models[i] <- paste("C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles\\MaxEnt_2019_thin1_T2\\geomys.csv,",
 				"C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles\\MaxEnt_2019\\",dirs[i], 
 			"\\maxent.asc,C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles\\MaxEnt_2019_thin1_T2\\", dirs[i],
                     "\\species.lambdas", sep="")
 }
 
 write.csv(models, "C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles\\MaxEnt_2019_thin1_T2\\maxent_models.csv", row.names=FALSE, quote=FALSE, col.names=FALSE)
+#####################################
+#For records, write your testing and training dataset
 write.csv(occ.pts,"Train_pts.csv")
 write.csv(val.pts,"Test_pts.csv")
 
-occ.pts
+####In ENMTools available here: http://enmtools.blogspot.com/
+####do model selection on the file 'maxent_models.csv'
+#### sort based on AICc with lowest at the top
+
+#############################################
+#############################################
+
+#Next, create a stack of the predictors included in the top model to re-run. This time we will
+#include jackknife, plots, and cross validation
+#We will write this to a new folder called 'Selected_Model'
 
 pred<-stack(predictors[[2:3]],predictors[[5:6]])
-pred<-predictors
-neg.maxent <- maxent(predict, data.frame(occ.pts)[,1:2],removeDuplicates=TRUE, args=c("betamultiplier=1", "-J", "-P"),
+
+neg.maxent <- maxent(pred, data.frame(occ.pts)[,1:2],removeDuplicates=TRUE, args=c("betamultiplier=1", "-J", "-P","replicates=10"),
 				path="C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles\\Selected_Model")
 
 
+#now we can create a map based on our SDM
 InPred<-predict(neg.maxent,pred)
 plot(InPred)
 points(total.pts)
 points(val.pts,pch=17,col='red')
-pairs(predictors)
-neg.maxent_val <- maxent(predict, data.frame(val.pts)[,1:2],removeDuplicates=TRUE, args=c("betamultiplier=1", "-J", "-P"),
+
+#Double check to make sure there are no highly correlated predictors
+
+pairs(pred)
+
+#write the raster output
+writeRaster(InPred,"C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles\\Selected_Model\\geomys_75.asc",format="ascii",overwrite=TRUE)
+
+##############################################
+####Next, we can look at the output for running the top model with just the validation occurences
+neg.maxent_val <- maxent(pred, data.frame(val.pts)[,1:2],removeDuplicates=TRUE, args=c("betamultiplier=1", "-J", "-P"),
 				path="C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles\\Selected_Model_validation")
 
 
-plot(predictors)
+###############################################
+##Next, we can look at AUC curves and thresholds
 set.seed(2)
+#create the background points
 bg <- randomPoints(InPred, 1000)
 
-e1 <- evaluate(neg.maxent, p=val.pts, a=bg, x=predict)
+e1 <- evaluate(neg.maxent, p=val.pts, a=bg, x=pred)
 plot(e1, 'ROC')
-e2 <- evaluate(neg.maxent, p=occ.pts, a=bg, x=predict)
+e2 <- evaluate(neg.maxent, p=occ.pts, a=bg, x=pred)
 plot(e2,'ROC')
-writeRaster(InPred,"C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles\\Selected_Model\\geomys_75.asc",format="ascii",overwrite=TRUE)
 threshold(e1)
-pairs(predictors)
-pairs(predict)
+threshold(e2)
+
