@@ -1,4 +1,6 @@
 ###Post driving survey Maxent
+#general data manipulation pacakges
+
 install.packages("spatstat")
 install.packages("rgdal")
 install.packages("raster")
@@ -8,15 +10,27 @@ install.packages("rJava")
 install.packages("sp")
 install.packages("PresenceAbsence")
 install.packages('devtools')
+
+#specific packages for extracting coordinates from photos
 install.packages('exifr')
 install.packages('dplyr')
 install.packages('leaflet')
 install.packages('tidyverse')
+
+#MaxEnt package and elevation layer
 install.packages('dismo')
+
+#PRISM package for prism data
 install.packages('prism',dependencies=TRUE)
+
+#Package to thin spatial points
 install.packages('spThin')
+
+#dependencies that failed to load 
 install.packages('stringi')
 install.packages('sf')
+
+################################
 require(spThin)
 require(spatstat)
 require(rgdal)
@@ -330,6 +344,9 @@ all.combos
 #Run a trial to ensure that everything is working correctly before the for-loop
 #Label your categorical predictors as factors
 #We will have a smoothing parameter of 1 (none) and will do a jackknife, print the plots, and have 10 replicates of cross validation
+#Remove Duplicates will remove occurrences that fall in the same grid cell. this means that your resolution will inform your data if
+#it is not thinned beforehand or if the resolution is coarser than your thinning
+
 neg.maxent <- maxent(predictors, factors=c("Soil.Texture","Land.Cover"), data.frame(occ.pts)[,1:2],removeDuplicates=TRUE, args=c("betamultiplier=1", "-J", "-P", "replicates=10"),
 				path="C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles\\Trials")
 
