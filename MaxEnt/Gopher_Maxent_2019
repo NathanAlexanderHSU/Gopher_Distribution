@@ -143,9 +143,14 @@ names(slope)<-"Slope"
 predictors <- stack(cr.precip_sd,cr.precip_avg,cr.elev,slope,soil_rast_texture,soil_rast_drainage,soil_rast_sand,land_use_il_re)
 
 plot(predictors)
+
+#Ensure that no predictors are highly correlated
+pairs(predictors)
+
 ###############################################
 ###############################################
 ###############################################
+
 #setwd(choose.dir())
 ####Occupied Sites
 
@@ -457,10 +462,6 @@ InPred<-predict(neg.maxent,pred)
 plot(InPred)
 points(total.pts)
 points(val.pts,pch=17,col='red')
-
-#Double check to make sure there are no highly correlated predictors
-
-pairs(pred)
 
 #write the raster output
 writeRaster(InPred,"C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles\\Selected_Model\\geomys_75.asc",format="ascii",overwrite=TRUE)
