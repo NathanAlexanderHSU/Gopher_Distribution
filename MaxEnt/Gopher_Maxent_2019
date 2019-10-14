@@ -1,6 +1,6 @@
 ###Post driving survey Maxent
 
-#general data manipulation pacakges
+#general data manipulation packages
 install.packages("spatstat")
 install.packages("rgdal")
 install.packages("raster")
