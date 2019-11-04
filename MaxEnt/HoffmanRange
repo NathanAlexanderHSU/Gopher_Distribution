@@ -1,5 +1,3 @@
-
-
 ###Post driving survey Maxent
 install.packages("spatstat")
 install.packages("rgdal")
@@ -17,6 +15,9 @@ install.packages('tidyverse')
 install.packages('dismo')
 install.packages('prism',dependencies=TRUE)
 install.packages('spThin')
+install.packages('stringi')
+install.packages('sf')
+install.packages('usdm')
 require(spThin)
 require(spatstat)
 require(rgdal)
@@ -32,11 +33,11 @@ library(dplyr)
 library(leaflet)
 require(devtools)
 require(prism)
-install.packages('stringi')
 require(stringi)
 require(prism)
-install.packages('sf')
 require(sf)
+require(usdm)
+
 
 ##initial gopher shape files
 #illinois<-readOGR(dsn="C:/Users/Nathan/Desktop/Gopher/Presence_Only_shapefiles",layer="IL_BNDY_County_Py")
@@ -92,7 +93,7 @@ soil<-readOGR(dsn="C:/Users/Nathan/Desktop/Gopher/Environmental Shapefiles/Soil_
 soil_rast_texture<-rasterize(soil,cr.elev,'texdesc')
 names(soil_rast_texture)<-"Soil Texture"
 soil_rast_texture<-mask(soil_rast_texture,illinois)
-soil_rast_drainage<-as.factor(rasterize(soil,cr.elev,'drainagecl'))
+soil_rast_drainage<-rasterize(soil,cr.elev,'drainagecl')
 names(soil_rast_drainage)<-"Soil Drainage"
 soil_rast_drainage<-mask(soil_rast_drainage,illinois)
 soil_rast_sand<-rasterize(soil,cr.elev,'sandtotal_')
@@ -123,7 +124,10 @@ names(slope)<-"Slope"
 
 predictors <- stack(cr.precip_sd,cr.precip_avg,cr.elev,slope,soil_rast_texture,soil_rast_drainage,soil_rast_sand,land_use_il_re)
 
-plot(predictors)
+#check correlation and variable inflation factor
+usdm::vif(predictors)
+pairs(predictors)
+
 ###############################################
 ###############################################
 ###############################################
