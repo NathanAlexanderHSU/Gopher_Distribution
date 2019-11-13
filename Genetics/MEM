@@ -1,0 +1,30 @@
+## Memgene analysis
+##Can plot on Google maps if using Decimal Lat/Lon, but not UTMS
+
+install.packages("memgene")
+library(memgene)
+library(adegenet)
+## Read in genotypes and coordinates
+genalex <- read.csv(choose.files(), header=TRUE)  ##Read in raw loci values, not genetic distances
+# Subset genotypes and coordinates
+Genotypes <- genalex[1:134,2:15]
+Coords <- genalex[1:134,16:17]
+plot(Coords)
+(Genotypes)
+
+## Produce genetic distance matrix using proportion of shared alleles (Bowcock et al. 1994)
+
+dm <- codomToPropShared(Genotypes,missingData=-9)  
+
+## Extract Moran's Eigen Vectors from distance matrix
+
+if(!exists("Analysis"))
+Analysis <- mgQuick(dm,Coords)
+
+
+## Visualize results of the first two memgene variables 
+require(rgdal)
+illinois<-readOGR(dsn="C:/Users/Nathan/Desktop/Gopher/Presence_Only_shapefiles",layer="IL_BNDY_County_Py")
+plot(illinois)
+mgMap(Coords, Analysis$memgene[,1],legend=TRUE,add=TRUE)
+
