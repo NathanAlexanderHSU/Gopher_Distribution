@@ -1,0 +1,41 @@
+install.packages('adegenet')
+install.packages('ecodist')
+install.packages('ape',dependencies=TRUE)
+install.packages('memgene')
+require(adegenet)
+require(ecodist)
+require(ape)
+require(memgene)
+
+full<-read.csv(choose.files())
+f1 <- function(vec) {
+        m <- mean(vec, na.rm = TRUE)
+        vec[is.na(vec)] <- m
+        return(vec)
+    }
+
+Genetics_Mean = apply(full[,27:40],2,f1)
+
+pca<-dudi.pca(Genetics_Mean, center=TRUE, scale=TRUE,scannf=TRUE,nf=2)
+gengraph(scale(Genetics_Mean), cutoff=NULL, ngrp=NULL, computeAll=FALSE,
+plot=TRUE, show.graph=TRUE, col.pal=funky, truenames=TRUE,
+nbreaks=10)
+pca.dist<-data.frame(pca$li)
+pca.dist
+  pca.euc<-ecodist::distance(pca.dist, method = "euclidean", sprange=NULL, spweight=NULL)
+nj_pca<-nj(pca.euc)
+
+dm <- codomToPropShared(full[,27:40],missingData='NA')  
+
+
+nj_dm<-nj(dm)
+plot(nj_dm)
+dim(dm)
+
+x <- as.vector(dm)
+y <- as.vector((cophenetic(nj_dm)))
+plot(x, y, xlab = "original distance", ylab = "distance in the tree",
+ main = "Is NJ appropriate?", pch = 20, col = transp("black",
+ 0.1), cex = 3)
+ abline(lm(y ~ x), col = "red")
+cor(x, y)^2
