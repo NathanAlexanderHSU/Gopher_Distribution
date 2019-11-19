@@ -1,0 +1,17 @@
+install.packages('adegenet')
+install.packages('ecodist')
+require(adegenet)
+require(ecodist)
+
+full<-read.csv(choose.files())
+f1 <- function(vec) {
+        m <- mean(vec, na.rm = TRUE)
+        vec[is.na(vec)] <- m
+        return(vec)
+    }
+
+Genetics_Mean = apply(full[,27:40],2,f1)
+pca<-dudi.pca(Genetics_Mean, center=TRUE, scale=TRUE,scannf=TRUE,nf=2)
+gengraph(scale(Genetics_Mean), cutoff=NULL, ngrp=NULL, computeAll=FALSE,
+plot=TRUE, show.graph=TRUE, col.pal=funky, truenames=TRUE,
+nbreaks=10)
