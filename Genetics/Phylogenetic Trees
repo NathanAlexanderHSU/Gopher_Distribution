@@ -1,0 +1,61 @@
+install.packages('adegenet')
+install.packages('ecodist')
+install.packages('ape',dependencies=TRUE)
+install.packages('memgene')
+require(adegenet)
+require(ecodist)
+require(ape)
+require(memgene)
+
+full<-read.csv(choose.files())
+f1 <- function(vec) {
+        m <- mean(vec, na.rm = TRUE)
+        vec[is.na(vec)] <- m
+        return(vec)
+    }
+
+Genetics_Mean = apply(full[,27:40],2,f1)
+gen_pop<-as.genpop(Genetics_Mean)
+data(microsatt)
+microsatt
+# obj <- as.genpop(microsatt$tab)
+pca<-dudi.pca(Genetics_Mean, center=TRUE, scale=TRUE,scannf=TRUE,nf=2)
+
+gengraph(scale(Genetics_Mean), cutoff=NULL, ngrp=NULL, computeAll=FALSE,
+	plot=TRUE, show.graph=TRUE, col.pal=funky, truenames=TRUE,
+ 	nbreaks=10)
+
+pca.dist<-data.frame(pca$li)
+row.names(pca.dist)<-full$Subspecies
+  pca.euc<-ecodist::distance(pca.dist, method = "euclidean", sprange=NULL, spweight=NULL)
+nj_pca<-nj(pca.euc)
+plot(nj_pca)
+dm <- codomToPropShared(full[,27:40],missingData='NA')  
+NeiD<-as.matrix(dist.genpop(population,method=1,diag=TRUE,upper=TRUE),ncol=40)
+rename_labels <- function(tree, vec) {
+ tree$tip.label <- vec
+ return(tree)
+}
+
+a <- nj_pca
+b <- paste(full$Genus,full$Subspecies,sep=" ")
+b
+renamed_tree <- rename_labels(tree = a, vec = b)
+renamed_tree
+plot(renamed_tree)
+rownames(pca.euc)<-b
+h_cluster <- hclust(pca.euc, method = "average", members = NULL)
+plot(h_cluster, cex = 0.6)
+nj_dm<-nj(dm)
+dev.new()
+plot(nj_dm)
+dim(dm)
+plot(as.phylo(renamed_tree), type='fan',cex = 0.6, label.offset = 0.5)
+x <- as.vector(dm)
+y <- as.vector((cophenetic(nj_dm)))
+plot(x, y, xlab = "original distance", ylab = "distance in the tree",
+main = "Is NJ appropriate?", pch = 20, col = transp("black",
+0.1), cex = 3)
+full
+abline(lm(y ~ x), col = "red")
+cor(x, y)^2
