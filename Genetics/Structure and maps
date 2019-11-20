@@ -365,3 +365,71 @@ getConstraintsFromAsciiRaster = function(file,cell_value_min=NULL,cell_value_max
 
 	return(map_constraints)
 }
+install.packages(c("fields","RColorBrewer","mapplots"))
+source("http://bioconductor.org/biocLite.R")
+biocLite("LEA")
+source("http://membres-timc.imag.fr/Olivier.Francois/Conversion.R")
+source("http://membres-timc.imag.fr/Olivier.Francois/POPSutilities.R")
+require(LEA)
+library(ggplot2)
+install.packages('ggmap')
+library(ggmap)
+library(maps)
+library(mapdata)
+
+input.file = "C:\\Users\\nba2\\Desktop\\STRUCTURE\\genotypes_trimmed_final_STRUCTURE_Aug_2019.txt"
+struct2geno(input.file, extra.row = 0, extra.col = 2,ploidy=2,FORMAT=1)
+
+obj.snmf = snmf("C:\\Users\\nba2\\Desktop\\STRUCTURE\\genotypes_trimmed_final_STRUCTURE_Aug_2019.geno", K = 4, alpha = 100, project = "new")
+
+qmatrix = Q(obj.snmf, K = 4)
+
+
+obj.snmf = snmf("C:\\Users\\nba2\\Desktop\\STRUCTURE\\genotypes_trimmed_final_STRUCTURE_Aug_2019.geno", K = 1:8, ploidy = 2, entropy = T,
+alpha = 100, project = "new")
+plot(obj.snmf, col = "blue4", cex = 1.4, pch = 19)
+
+barplot(t(qmatrix), col = c("orange","violet","darkgreen","lightblue",'darkblue','red'), border = NA, space = 0,
+xlab = "Individuals", ylab = "Admixture coefficients")
+
+coord = read.table("C:\\Users\\nba2\\Desktop\\STRUCTURE\\Geno_Locs_simple.txt")
+coord<-cbind(coord$V3,coord$V2)
+coord
+
+K = 4
+Npop = 244
+qpop = matrix(NA, ncol = K, nrow = Npop)
+coord.pop = matrix(NA, ncol = 2, nrow = Npop)
+for (i in 1:244){
+qpop[i,] = apply(qmatrix[pop == 1,], 2, mean)
+coord.pop[i,] = apply(coord[pop == i,], 2, mean)}
+
+qmatrix
+install.packages('maptools')
+library(mapplots)
+plot(coord, xlab = "Longitude", ylab = "Latitude", type = "n")
+ggmap(add = T, col = "grey90", fill = TRUE)
+
+map('state')
+
+for (i in 1:Npop){
+add.pie(z = qmatrix[i,], x = coord[i,1], y = coord[i,2], labels = "",radius=.25,
+col = c("orange","violet","darkgreen","lightblue"))}
+
+plot(coord, pch = 19,  xlab="Longitude", ylab = "Latitude")
+map(add = T, interior = F, col = "grey80")
+asc.raster="http://membres-timc.imag.fr/Olivier.Francois/RasterMaps/North_America.asc"
+
+asc.raster
+grid=createGridFromAsciiRaster(asc.raster)
+max(coord[,1])
+grid[,2]
+grid_1<-grid[which(grid [,1] < max(coord[,1])),]
+grid_1<-grid[which(grid [,1] > min(coord[,1])),]
+grid_1<-grid[which(grid [,2] < max(coord[,2])),]
+grid_1<-grid[which(grid [,2] > min(coord[,2])),]
+grid_1
+constraints=getConstraintsFromAsciiRaster(asc.raster,cell_value_min=0)
+constraints_1<-constraints[grid_1,]
+maps(matrix = qmatrix, coord, grid_1, method = "max",
+main = "Ancestry coefficients", xlab = "Longitude", ylab = "Latitude", cex = .5)
