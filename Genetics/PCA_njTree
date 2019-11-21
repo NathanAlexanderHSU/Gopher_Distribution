@@ -7,6 +7,7 @@ require(ecodist)
 require(ape)
 require(memgene)
 
+
 full<-read.csv(choose.files())
 f1 <- function(vec) {
         m <- mean(vec, na.rm = TRUE)
@@ -15,27 +16,73 @@ f1 <- function(vec) {
     }
 
 Genetics_Mean = apply(full[,27:40],2,f1)
+gen_pop<-as.genpop(Genetics_Mean)
 
-pca<-dudi.pca(Genetics_Mean, center=TRUE, scale=TRUE,scannf=TRUE,nf=2)
-gengraph(scale(Genetics_Mean), cutoff=NULL, ngrp=NULL, computeAll=FALSE,
-plot=TRUE, show.graph=TRUE, col.pal=funky, truenames=TRUE,
-nbreaks=10)
-pca.dist<-data.frame(pca$li)
-pca.dist
+# obj <- as.genpop(microsatt$tab)
+pca<-dudi.pca(Genetics_Mean, center=TRUE, scale=TRUE,scannf=FALSE,nf=2)
+  pca.dist<-data.frame(pca$li)
   pca.euc<-ecodist::distance(pca.dist, method = "euclidean", sprange=NULL, spweight=NULL)
-nj_pca<-nj(pca.euc)
+  pca.mat<-as.matrix(pca.euc)
 
+gengraph(scale(Genetics_Mean), cutoff=NULL, ngrp=NULL, computeAll=FALSE,
+	plot=TRUE, show.graph=TRUE, col.pal=funky, truenames=TRUE,
+ 	nbreaks=10)
+
+
+
+nj_pca<-nj(pca.mat)
+plot(nj_pca)
+length(cophenetic(nj_pca))
 dm <- codomToPropShared(full[,27:40],missingData='NA')  
+rename_labels <- function(tree, vec) {
+ tree$tip.label <- vec
+ return(tree)
+}
 
+a <- nj_dm
+b <- paste(full$Genus,full$Subspecies,sep=" ")
 
+renamed_tree <- rename_labels(tree = a, vec = b)
+plot(renamed_tree)
+rownames(dm)<-b
+h_cluster <- hclust(pca.euc, method = "average", members = NULL)
+plot(h_cluster, cex = 0.6)
 nj_dm<-nj(dm)
+dev.new()
 plot(nj_dm)
-dim(dm)
-
+dim(renamed_tree)
+plot(as.phylo(renamed_tree), type='fan',cex = 0.6, label.offset = 0)
 x <- as.vector(dm)
 y <- as.vector((cophenetic(nj_dm)))
 plot(x, y, xlab = "original distance", ylab = "distance in the tree",
- main = "Is NJ appropriate?", pch = 20, col = transp("black",
- 0.1), cex = 3)
- abline(lm(y ~ x), col = "red")
+main = "Is NJ appropriate?", pch = 20, col = transp("black",
+0.1), cex = 3)
+length(x)
+length(y)
+full
+abline(lm(y ~ x), col = "red")
 cor(x, y)^2
+
+
+
+
+install.packages('pegas')
+require(pegas)
+
+loci.ob<-full[,27:40]
+dim(loci.ob)
+loc.format<-data.frame(ncol=7,nrow=244)
+z<-0
+for(i in seq(from=1, to=13, by=2)){
+	z<-z+1
+	replace<-as.vector(paste(loci.ob[,i],loci.ob[,(i+1)],sep="/"))
+	for(j in 1:length(replace)){
+		loc.format[j,z]<-replace[j]
+	}
+}
+loc.format
+loc.format
+full.loci<-as.loci(loc.format,na.alleles='NA',allele.sep='/')
+full.loci
+
+asd_dist<-dist.asd(full.loci,scale=TRUE)
