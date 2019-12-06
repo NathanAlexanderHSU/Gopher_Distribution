@@ -6,8 +6,56 @@ require(adegenet)
 require(ecodist)
 require(ape)
 require(memgene)
-
+install.packages('PopGenReport')
+require(PopGenReport)
+install.packages('phytools')
+require(phytools)
+install.packages('poppr')
+require(poppr)
 full<-read.csv(choose.files())
+dim(full)
+head(full)
+
+
+full_genind<-adegenet::df2genind(full[,40:46],ncode=3,ind.names=full$ID,pop=full$Subspecies,ploidy=2,type='codom',sep="/")
+full_sum<-summary(full_genind)
+plot(full_sum$Hobs, xlab="Loci number", ylab="Observed Heterozygosity", 
+     main="Observed heterozygosity per locus")
+plot(full_sum$Hobs, full_sum$Hexp, xlab="Observed Heterozygosity", ylab="Expected Heterozygosity", 
+     main="Expected heterozygosity as a function of observed heterozygosity per locus")
+
+
+poppr(full_genind,missing='ignore',plot=TRUE,hist=TRUE)
+ Fst<-PopGenReport::pairwise.fstb(full_genind)
+
+
+rownames(Fst)
+
+nj_fst<-nj(Fst)
+
+plot(nj_fst)
+
+renamed_tree <- rename_labels(tree = nj_fst, vec = rownames(Fst))
+
+plot(as.phylo(renamed_tree), type='radial',cex = 0.8, label.offset = 0.01)
+
+full_genpop<-genind2genpop(full_genind)
+full_genpop
+
+NeiD<-as.matrix(dist.genpop(full_genpop,method=1,diag=TRUE,upper=TRUE),ncol=9)
+CoAn<-as.matrix(dist.genpop(full_genpop,method=3,diag=TRUE,upper=TRUE),ncol=9)
+NeiD
+nj_C<-nj(CoAn)
+plot(nj_C)
+
+renamed_tree <- rename_labels(tree = nj_C, vec = rownames(CoAn))
+rr.interactive<-phytools::reroot(renamed_tree,interactive=TRUE)
+plotTree(renamed_tree)
+plotTree(root(renamed_tree,node=10))
+plot(as.phylo(renamed_tree), type='phylogram',cex = 0.8, label.offset = 0.01)
+tiplabels()
+nodelabels()
+
 f1 <- function(vec) {
         m <- mean(vec, na.rm = TRUE)
         vec[is.na(vec)] <- m
@@ -26,36 +74,66 @@ gengraph(scale(Genetics_Mean), cutoff=NULL, ngrp=NULL, computeAll=FALSE,
  	nbreaks=10)
 
 pca.dist<-data.frame(pca$li)
-row.names(pca.dist)<-full$Subspecies
+row.names(pca.dist)<-b
+pca.dist
   pca.euc<-ecodist::distance(pca.dist, method = "euclidean", sprange=NULL, spweight=NULL)
+pca.mat<-as.matrix(pca.euc)
+pca.euc
 nj_pca<-nj(pca.euc)
 plot(nj_pca)
 dm <- codomToPropShared(full[,27:40],missingData='NA')  
 NeiD<-as.matrix(dist.genpop(population,method=1,diag=TRUE,upper=TRUE),ncol=40)
+
 rename_labels <- function(tree, vec) {
  tree$tip.label <- vec
  return(tree)
 }
 
-a <- nj_pca
-b <- paste(full$Genus,full$Subspecies,sep=" ")
+a <- nj_dm
+c<-(1:244)
+rownames(dm)<-b
+b <- paste(full$County,full$Subspecies,c,sep=" ")
+dm
 b
 renamed_tree <- rename_labels(tree = a, vec = b)
 renamed_tree
 plot(renamed_tree)
-rownames(pca.euc)<-b
-h_cluster <- hclust(pca.euc, method = "average", members = NULL)
-plot(h_cluster, cex = 0.6)
+rownames(pca.mat)<-b
+class(pca.euc)
+h_cluster <- hclust(as.dist(CoAn), method = "single", members = NULL)
+plot(h_cluster, cex = 1,hang=.5)
 nj_dm<-nj(dm)
 dev.new()
 plot(nj_dm)
 dim(dm)
 plot(as.phylo(renamed_tree), type='fan',cex = 0.6, label.offset = 0.5)
-x <- as.vector(dm)
-y <- as.vector((cophenetic(nj_dm)))
+x <- as.vector(Fst)
+y <- as.vector((cophenetic(nj_fst)))
 plot(x, y, xlab = "original distance", ylab = "distance in the tree",
 main = "Is NJ appropriate?", pch = 20, col = transp("black",
 0.1), cex = 3)
 full
 abline(lm(y ~ x), col = "red")
 cor(x, y)^2
+
+pegas::hw.test(full_genind,B=0)
+hierfstat::fstat(full_genind)
+hist(pairwise.fst(full_genind))
+
+X <- scaleGen(full_genind, NA.method="mean")
+pca1 <- dudi.pca(X,cent=FALSE,scale=FALSE,scannf=FALSE,nf=3)
+barplot(pca1$eig[1:50],main="PCA eigenvalues", col=heat.colors(50))
+s.label(pca1$li)
+title("PCA of microbov dataset\naxes 1-2")
+add.scatter.eig(pca1$eig[1:20], 3,1,2)
+s.class(pca1$li, pop(full_genind))
+title("PCA of microbov dataset\naxes 1-2")
+add.scatter.eig(pca1$eig[1:20], 3,1,2)
+col <- funky(15)
+s.class(pca1$li, pop(full_genind),xax=1,yax=3, col=transp(col,.6), axesell=FALSE,
+cstar=0, cpoint=3, grid=FALSE)
+
+colorplot(pca1$li, pca1$li, transp=TRUE, cex=3, xlab="PC 1", ylab="PC 2")
+title("PCA of microbov dataset\naxes 1-2")
+abline(v=0,h=0,col="grey", lty=2)
+
