@@ -1,0 +1,73 @@
+install.packages('seqinr',dependencies=TRUE)
+install.packages('ggtree')
+require(seqinr)
+require(ape)
+require(ggtree)
+require(adegenet)
+require(ggplot2)
+
+#read downloaded FASTA with 1140 bp mtDNA from GenBank
+
+DNA <- read.FASTA(choose.files(),type='DNA')
+
+myDNA<-as.matrix(DNA)
+
+#Check plots
+snpposi.plot(myDNA,codon=TRUE)
+obj <- DNAbin2genind(myDNA, polyThres=0.01)
+
+
+dist_mtDNA<-dist.dna(DNA)
+
+#create a vector of species names
+species_id<-list()
+
+for(i in 1:length(rownames(myDNA))){
+	split<-strsplit(rownames(myDNA)[i],"*.1 ")
+	
+	split2<-strsplit(split[[1]][2]," voucher")
+	species_id<-rbind(species_id,split2[[1]][1])
+}
+
+#wrte and read out to fix a few label issues
+
+write.csv(species_id,"C:/Users/nba2/Desktop/Species_mtDNA_sampleNames.csv")
+species_id<-read.csv(choose.files(),header=FALSE)
+
+#rename the tree tips
+
+a <- tre
+b <- list(species_id[,1])
+plot(a)
+rownames(dist_mtDNA)<-b
+tre<-nj(dist_mtDNA)
+rename_labels <- function(tree, vec) {
+ tree$tip.label <- vec
+ return(tree)
+}
+
+ist(species_id[,1])
+b[[1]]
+renamed_tree <- rename_labels(tree = a, vec = as.vector(b[[1]]))
+renamed_tree
+plot(as.phylo(renamed_tree),type='phylogram',cex=.8)
+
+pco1 <- dudi.pco(dist_mtDNA, scannf=FALSE,nf=2)
+
+s.label(pco1$li*1.1, clab=0, pch="")
+install.packages('wordcloud')
+require(wordcloud)
+rownames(pco1$li)<-b[[1]]
+textplot(pco1$li[,1], pco1$li[,2], words=b[[1]],
+cex=.6, new=FALSE, xpd=TRUE)
+title("Principal Coordinate Analysis\n-based on proteic distances-")
+
+if (!requireNamespace("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+
+BiocManager::install("ggtree")
+require(ggtree)
+ggtree(renamed_tree, ladderize = TRUE, branch.length = "none",layout="rectangular")+
+	geom_point(aes(shape=isTip, color=isTip), size=3)+
+	geom_text(aes(x=branch, label=label, angle=0), size=3.5, color="black", vjust=-0.3)+
+	ggtitle("Cytochrome B for Geomys from GenBank")
