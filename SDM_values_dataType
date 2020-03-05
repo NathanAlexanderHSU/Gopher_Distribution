@@ -1,0 +1,46 @@
+require(raster)
+require(dismo)
+require(rgdal)
+require(reshape2)
+require(ggplot2)
+require(rgeos)
+historic.pts<-readOGR(dsn="C:\\Users\\nba2\\Desktop\\Historic",layer="historic_samples", )
+trapping.pts<-readOGR(dsn="C:\\Users\\nba2\\Desktop\\Sarah\\soil_test",layer="Export_Output")
+survey.pts<-readOGR(dsn="C:\\Users\\nba2\\Downloads\\total_pts_aug_2019\\total_pts_aug_2019",layer="TotalPts_Aug2019")
+
+range<-readOGR(dsn="C:\\Users\\nba2\\Desktop\\shapefiles", layer="IL_BNDY_County_Py")
+sdm<-raster('C:\\Users\\nba2\\Downloads\\maxent.asc')
+hist.pts <- gIntersection(historic.pts, range, byid=TRUE)
+
+plot(sdm)
+plot(range,add=TRUE)
+points(hist.pts)
+points(trapping.pts,pch=17,col='red')
+points(survey.pts,pch=17,col='yellow')
+
+
+
+Values_hist<-extract(sdm, hist.pts)
+Values_survey<-extract(sdm,survey.pts)
+Values_trapping<-extract(sdm, trapping.pts)
+
+
+hist_data<-data.frame(paste("Historic Data"),Values_hist)
+survey_data<-data.frame(paste("Survey Data"),Values_survey)
+trapping_data<-data.frame(paste("Trapping Data"),Values_trapping)
+
+colnames(hist_data)<-c("Data.Type","Habitat Value")
+colnames(survey_data)<-c("Data.Type","Habitat Value")
+colnames(trapping_data)<-c("Data.Type","Habitat Value")
+
+all.data<-rbind(hist_data,survey_data,trapping_data)
+
+
+
+all.m<-na.omit(melt(all.data,id="Data.Type"))
+head(all.m)
+dim(all.m)
+ggplot(data = all.m, aes(x=Data.Type, y=value)) + geom_boxplot(aes(fill=Data.Type))+
+  xlab("Data Type") + ylab("Habitat Suitability") + ggtitle("Geomys Habitat Suitability across Data Types")+
+  guides(fill=guide_legend(title=" "))
+
