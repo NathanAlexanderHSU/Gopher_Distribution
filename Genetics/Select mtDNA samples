@@ -1,0 +1,40 @@
+require(rgdal)
+require(sp)
+require(rgeos)
+require(spThin)
+#read in MO, IL, and IN
+
+#This code selects all historic samples in Missouri, Illinois, and Indiana that we have microsatellite DNA extraction from.
+#We then thin these samples to be 1 km apart, and recombine with the full dataset. One Missouri sample still needs to be removed after
+#this, as it's on the western border rather than the southeast (Gopher ID 24229)
+
+Tri<-readOGR(dsn='C:\\Users\\Nathan\\Desktop\\Gopher\\Political Boundaries\\states\\TriState',layer='IL_IN_MO')
+
+#Read in the historic data that has been amplified
+
+hist_gbi<-read.csv('D:\\Genetic Structure\\Full_data.csv')
+
+#Create a spatial points data frame of the historic points with microsatellite data
+
+hist_gbi_spdf<-SpatialPointsDataFrame(cbind(hist_gbi$Long,hist_gbi$Lat), 
+	data=hist_gbi, coords.nrs = numeric(0), 
+	proj4string = CRS(as.character(NA)), match.ID = TRUE)
+
+#only select points that are in the Tri-state area
+
+hist.pts <- gIntersection(hist_gbi_spdf, Tri, byid=TRUE)
+
+#thin the points by 1km
+coords_hist<-coordinates(hist.pts)
+thinned_pts<-thin.algorithm(coords_hist,thin.par=1,rep=1)
+thinned_sp<-SpatialPoints(thinned_pts)
+thinned_pts_df<-data.frame(thinned_pts[[1]])
+dim(thinned_pts_df)
+points(thinned_sp)
+coordinates(thinned_sp)
+hist_th<-merge(hist_gbi_spdf,thinned_sp,by.id
+
+hist_over<-SpatialPointsDataFrame(thinned_sp,data=over(thinned_sp,hist_gbi_spdf))
+hist_over_df<-over(thinned_sp,hist_gbi_spdf)
+write.csv(hist_over_df,"D:\\Genetic Structure\\mtDNA_subsample\\mtDNA_subsample.csv")
+writeOGR(hist_over,dsn="D:\\Genetic Structure\\mtDNA_subsample",layer="mtDNA_subsample",driver="ESRI Shapefile")
