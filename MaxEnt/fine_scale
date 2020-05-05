@@ -295,25 +295,25 @@ print(output.dir)
 
 if(5 %in% all.combos[[j]]){
 	if(8 %in% all.combos[[j]]){
-		model <- maxent(predictors[[all.combos[[j]]]],factors=c("Soil.Texture","Land.Cover"), coordinates(occ.pts),
+		model <- maxent(predictors[[all.combos[[j]]]],factors=c("Soil.Texture","Land.Cover"), coordinates(occ.pts),removeDuplicates=TRUE,
             	args=c(paste("betamultiplier=", i, sep=""), "outputformat=raw"),
                   path=output.dir)
 	
 			}
-	model <- maxent(predictors[[all.combos[[j]]]],factors=c("Soil.Texture"), coordinates(occ.pts),
+	model <- maxent(predictors[[all.combos[[j]]]],factors=c("Soil.Texture"), coordinates(occ.pts), removeDuplicates=TRUE,
             	args=c(paste("betamultiplier=", i, sep=""), "outputformat=raw"),
                   path=output.dir)
 
 		}
 
 if(8 %in% all.combos[[j]]){ 
-		model <- maxent(predictors[[all.combos[[j]]]],factors="Land.Cover", coordinates(occ.pts),
+		model <- maxent(predictors[[all.combos[[j]]]],factors="Land.Cover", coordinates(occ.pts),removeDuplicates=TRUE,
                  	args=c(paste("betamultiplier=", i, sep=""), "outputformat=raw"),
                   path=output.dir)
 	
 		}
 
-model <- maxent(predictors[[all.combos[[j]]]], coordinates(occ.pts),
+model <- maxent(predictors[[all.combos[[j]]]], coordinates(occ.pts), removeDuplicates=TRUE,
              args=c(paste("betamultiplier=", i, sep=""), "outputformat=raw"),
              path=output.dir)
 
