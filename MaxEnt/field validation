@@ -96,3 +96,29 @@ crs(sam)<-crs(parks)
 par_sam<-point.in.poly(sam,parks,sp=TRUE,dupliate=TRUE)
 par_sam
 plot(par_sam)
+
+
+#determine which random points are too close:
+
+require(rgdal)
+install.packages('geodist')
+require(geodist)
+
+resurvey<-readOGR(dsn="C:\\Users\\Nathan\\Desktop\\Gopher\\Field validation",layer="field_verification_road")
+resurvey<-sam
+plot(resurvey,pch=resurvey@data$layer,col=resurvey@data$layer)
+
+total.pts<-readOGR("C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles", layer="TotalPts_Aug2019")
+trap_sites<-readOGR("C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles",layer="Trap_Data_Jan2020")
+total.pts<-SpatialPointsDataFrame(rbind(coordinates(total.pts),coordinates(trap_sites)),data=data.frame(rbind(coordinates(total.pts),coordinates(trap_sites))))
+writeOGR(total.pts,"C:/Users/Nathan/Desktop/Gopher/Presence_only_shapefiles/Full presence locations",layer="TrapSurveyPresences_2020",driver="ESRI Shapefile")
+points(total.pts)
+re_coords<-data.frame(coordinates(resurvey))
+colnames(re_coords)<-c("longitude","latitude")
+tot_coords<-data.frame(coordinates(total.pts))
+colnames(tot_coords)<-c("longitude","latitude")
+survey_dist<-geodist(re_coords,tot_coords)
+
+boxplot(as.numeric(survey_dist))
+too_close<-survey_dist[survey_dist<1000]
+too_close
