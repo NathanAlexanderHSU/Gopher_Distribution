@@ -122,3 +122,26 @@ survey_dist<-geodist(re_coords,tot_coords)
 boxplot(as.numeric(survey_dist))
 too_close<-survey_dist[survey_dist<1000]
 too_close
+
+###############################
+#Combine information with field validation points
+require(rgdal)
+require(raster)
+
+survey_pt<-readOGR("C:/Users/Nathan/Desktop/Gopher/field validation","field_verification_road_use_erased")
+
+field_classification<-raster("C:/Users/Nathan/Desktop/Gopher/field validation/Reclass_SDM.asc")
+maxent_value<-raster("C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles\\Selected_Model_Hoffman_Feb_2020\\maxent.asc")
+landcover<-raster("C:\\Users\\Nathan\\Desktop\\Gopher\\fine scale raster stack\\fine_scale_8.tif")
+field_extr<-raster::extract(field_classification,survey_pt)
+max_extr<-raster::extract(maxent_value,survey_pt)
+survey_coords<-coordinates(survey_pt)
+land_cvr<-raster::extract(landcover,survey_pt)
+write.csv(land_cvr,"C:/Users/Nathan/Desktop/landcover)survey.csv")
+point_id<-1:157
+add_data<-cbind(point_id,survey_coords,field_extr,max_extr)
+add_data
+colnames(add_data)<-c('point_id','longitude','latitude','layer_class','Maxent_value')
+data_frame<-cbind(survey_pt,add_data)
+plot(data_frame)
+writeOGR(data_frame,"C:/Users/Nathan/Desktop/Gopher/field validation",layer="Field_validation_w_values",driver="ESRI Shapefile",overwrite=TRUE)
