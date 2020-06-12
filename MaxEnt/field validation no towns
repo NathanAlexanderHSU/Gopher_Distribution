@@ -1,0 +1,154 @@
+require(devtools)
+require(raster)
+install_github("johnbaums/rmaxent")
+require(rmaxent)
+install.packages('dismo',dependencies=TRUE)
+require(dismo)
+require(rgdal)
+require(spThin)
+install.packages('rJava')
+require(rJava)
+install.packages('maxent')
+require(maxent)
+require(geosphere)
+install_github('jeffreyevans/spatialEco')
+require(spatialEco)
+
+
+#read in the gopher fine scale SDM 
+fine_sdm<-raster("C:/Users/Nathan/Desktop/Gopher/Presence_Only_shapefiles/Selected_Model_Hoffman_Feb_2020/maxent.asc")
+plot(fine_sdm)
+
+max_gbi<-import_maxent(dir="C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles\\Selected_Model_Hoffman_Feb_2020",
+                       lambdas='species.lambdas',html='maxent.html')
+max_gbi
+
+raster_dir<-"C:\\Users\\Nathan\\Desktop\\Gopher\\fine scale raster stack\\"
+list.files(raster_dir)
+
+predictors<-stack(paste0(raster_dir,list.files(raster_dir)[5]),
+                  paste0(raster_dir,list.files(raster_dir)[6]),
+                  paste0(raster_dir,list.files(raster_dir)[8]))
+
+names(predictors)<-c("Soil Texture","Soil Drainage","Land Cover")
+predictors
+usdm::vif(predictors)
+pairs(predictors)
+memory.limit(NA)
+Inpred<-dismo::predict(max_gbi,predictors)
+plot(predictors)
+occ.pts_df<-read.csv('C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles\\Selected_Model_Hoffman_Feb_2020/geomys.csv')
+points(cbind(occ.pts_df$X,occ.pts_df$Y),pch=17,col='cyan')
+occ.pts<-SpatialPoints(cbind(occ.pts_df$X,occ.pts_df$Y))
+
+set.seed(2)
+bg <- randomPoints(Inpred, 10000)
+
+plot(Inpred)
+e1 <- evaluate(max_gbi, p=occ.pts, a=bg, x=predictors)
+e1
+threshold(e1)
+#we will create discrete categories
+#because the maximimum HSI value is 1, we will start
+#categorization at 2.
+re_1<-reclassify(Inpred,c(0,0.03287099,2))
+re_2<-reclassify(re_1,c(0.03287010,.5,3))
+re_3<-reclassify(re_2,c(.500000001,.75,4))
+re_4<-reclassify(re_3,c(.750000001,1,5))
+plot(re_4)                 
+writeRaster(re_4,"C:/Users/Nathan/Desktop/Gopher/Field validation/Reclass_SDM.asc",overwrite=TRUE)
+plot(Inpred)
+dev.new()
+extract_val<-extract(Inpred,occ.pts)
+boxplot(extract_val)
+plot(re_4)
+median(extract_val)
+cellStats(re_4,min)
+
+re_4<-raster("C:/Users/Nathan/Desktop/Gopher/Field validation/Reclass_SDM.asc")
+roads<-readOGR(dsn="C:\\Users\\Nathan\\Desktop\\Gopher\\Political Boundaries\\IL_roads\\Hoffan_range_roads",layer="Hoffman_range_buff")
+crs(re_4)<-crs(roads)
+crs(roads)
+roads_WGS84 <- spTransform(roads,crs(re_4))
+
+towns<-readOGR("C:\\Users\\Nathan\\Desktop\\Gopher\\Field validation\\Park_layer\\tl_2019_us_uac10",layer="tl_2019_us_uac10")
+towns_WGS84<-spTransform(towns,crs(re_4))
+
+memory.limit(1000000)
+
+re_4_mask<-mask(re_4,roads_WGS84)
+re_4_mask2<-mask(re_4_mask,towns_WGS84, inverse=TRUE)
+plot(re_4_mask2)
+
+#Generate 40 points randomly across 4 levels of habitat thresholds. Also identify which IDNR parks will be used.
+#set.seed() was used to generate the random points so it can be replicated. 
+#Erase function in arcmap was used to erase 3 points that were within 1km of presence locations to prevent pseudo-replication.
+#All 3 erased points were high suitability (.75-1) with 2 in Mason county and 1 in Cass County 
+set.seed(1)
+sam<-sampleStratified(re_4_mask2,40,xy=TRUE,sp=TRUE,na.rm=TRUE)
+points(sam)
+ex_sam<-extract(re_4,sam)
+boxplot(ex_sam)
+sam_dist<-distGeo(sam)
+boxplot(sam_dist)
+(sam_dist)
+write.csv(sam_dist,"C:/Users/Nathan/Desktop/sample_point_dists.csv")
+writeOGR(sam,"C:/Users/Nathan/Desktop/Gopher/Field validation",layer="field_verification_noTown",driver="ESRI Shapefile",overwrite=TRUE)    
+
+parks<-readOGR("C:\\Users\\Nathan\\Desktop\\Gopher\\Field validation\\Park_layer",layer='Hoffman_parks')
+plot(re_4)
+
+points(sam)
+crs(sam)<-crs(parks)
+par_sam<-point.in.poly(sam,parks,sp=TRUE,dupliate=TRUE)
+par_sam
+plot(par_sam)
+
+
+#determine which random points are too close:
+
+require(rgdal)
+install.packages('geodist')
+require(geodist)
+
+resurvey<-readOGR(dsn="C:\\Users\\Nathan\\Desktop\\Gopher\\Field validation",layer="field_verification_noTown")
+resurvey<-sam
+plot(resurvey,pch=resurvey@data$layer,col=resurvey@data$layer)
+
+total.pts<-readOGR("C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles", layer="TotalPts_Aug2019")
+trap_sites<-readOGR("C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles",layer="Trap_Data_Jan2020")
+total.pts<-SpatialPointsDataFrame(rbind(coordinates(total.pts),coordinates(trap_sites)),data=data.frame(rbind(coordinates(total.pts),coordinates(trap_sites))))
+writeOGR(total.pts,"C:/Users/Nathan/Desktop/Gopher/Presence_only_shapefiles/Full presence locations",layer="TrapSurveyPresences_2020",driver="ESRI Shapefile")
+points(total.pts)
+re_coords<-data.frame(coordinates(resurvey))
+colnames(re_coords)<-c("longitude","latitude")
+tot_coords<-data.frame(coordinates(total.pts))
+colnames(tot_coords)<-c("longitude","latitude")
+survey_dist<-geodist(re_coords,tot_coords)
+
+boxplot(as.numeric(survey_dist))
+too_close<-survey_dist[survey_dist<1000]
+too_close
+
+###############################
+#Combine information with field validation points
+require(rgdal)
+require(raster)
+
+survey_pt<-readOGR("C:/Users/Nathan/Desktop/Gopher/field validation","field_verification_noTown")
+
+field_classification<-raster("C:/Users/Nathan/Desktop/Gopher/field validation/Reclass_SDM.asc")
+maxent_value<-raster("C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles\\Selected_Model_Hoffman_Feb_2020\\maxent.asc")
+landcover<-raster("C:\\Users\\Nathan\\Desktop\\Gopher\\fine scale raster stack\\fine_scale_8.tif")
+field_extr<-raster::extract(field_classification,survey_pt)
+max_extr<-raster::extract(maxent_value,survey_pt)
+survey_coords<-coordinates(survey_pt)
+land_cvr<-raster::extract(landcover,survey_pt)
+write.csv(land_cvr,"C:/Users/Nathan/Desktop/landcover)survey.csv")
+point_id<-1:159
+add_data<-cbind(point_id,survey_coords,field_extr,max_extr)
+add_data
+colnames(add_data)<-c('point_id','longitude','latitude','layer_class','Maxent_value')
+data_frame<-cbind(survey_pt,add_data)
+plot(data_frame)
+writeOGR(data_frame,"C:/Users/Nathan/Desktop/Gopher/field validation",layer="Field_validation_w_values_NoTown",driver="ESRI Shapefile",overwrite=TRUE)
