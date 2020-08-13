@@ -1,0 +1,114 @@
+install.packages('rgdal')
+install.packages('geosphere')
+install.packages('tree')
+
+require(tree)
+require(rgdal)
+require(geosphere)
+
+field_validation<-read.csv(choose.files())
+field_validation<-read.csv(GH_area_full,"C:\\Users\\Nathan\\Desktop\\Gopher\\Field validation\\NAD83_rasters\\full_withArea.csv")
+head(field_validation)
+
+head(field_validation)
+crs(val_sp)
+val_sp<-SpatialPointsDataFrame(coords=cbind(field_validation$Point.Long,
+	field_validation$Point.Lat), data=field_validation)
+
+crs(val_sp)=("+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs +towgs84=0,0,0")
+plot(val_sp)
+
+occ_sp<-readOGR("C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles\\Full presence locations",
+	layer="TrapSurveyPresences_2020")
+points(occ_sp,pch=17)
+proj4string(val_sp)<-CRS("+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs +towgs84=0,0,0")
+proj4string(occ_sp)<-CRS("+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs +towgs84=0,0,0")
+
+
+val_dist2occ<-distm(SpatialPoints(val_sp),SpatialPoints(occ_sp),fun=distGeo)
+head(val_dist2occ)
+val_minDist<-as.data.frame(apply(val_dist2occ, 1, FUN=min),ncol=1)
+colnames(val_minDist)<-"DistancetoOccurrence"
+head(val_minDist)
+
+dim(GH_ar_full)
+field_validation2<-cbind(field_validation,val_minDist,GH_area_full)
+high_qual<-field_validation2[which(field_validation2$Habitat.Value>.66),]
+
+head(high_qual)
+high_qual.na<-high_qual[which(high_qual$Gopher.Presence.0.1. !='NA'),]
+high_qual.na_patch<-cbind(high_qual.na,GH_area_com)
+dim(high_qual.na_patch)
+
+field.na<-high_qual[which(field_validation2$Gopher.Presence.0.1. !='NA'),]
+
+head(high_qual.na)
+dim(high_qual.na)
+sum(high_qual.na_patch$Gopher.Presence.0.1.)
+
+tree.model <- tree(factor(high_qual.na_patch$Gopher.Presence.0.1.>0) ~ factor(Residential)
+	+ factor(Obs.LC) + factor(Layer.LC) +DistancetoOccurrence +Habitat.Value +Open_Space_area +
+	Rye_area+Grassland_Pasture_area,data=high_qual.na_patch)
+
+tree.model <- tree(factor(high_qual.na_patch$Gopher.Presence.0.1.) ~ factor(Residential)
+	+ factor(Obs.LC) + factor(Layer.LC) +DistancetoOccurrence +Habitat.Value +Open_Space_area +
+	Rye_area+Grassland_Pasture_area,data=high_qual.na_patch)
+
+tree.model <- tree(factor(field_validation2$Gopher.Presence.0.1.) ~ factor(Residential)
+	+ factor(Obs.LC) + factor(Layer.LC) +DistancetoOccurrence +Habitat.Value +Open_Space_area +
+	Rye_area+Grassland_Pasture_area,data=field_validation2)
+
+
+plot(tree.model)
+text(tree.model)
+summary(tree.model)
+tree.model
+tree.cv<-cv.tree(tree.model)
+plot(tree.cv)
+
+tree.x<-prune.tree(tree.model,best=3)
+plot(tree.x)
+text(tree.x)
+summary(tree.x)
+tree.x
+head(field.na)
+
+
+############################
+###try with rpart###########
+install.packages('rpart')
+require(rpart)
+rpart.model <- rpart(factor(high_qual.na$Gopher.Presence.0.1.) ~ factor(Residential)
+	+ factor(Obs.LC) + factor(Layer.LC) +DistancetoOccurrence + +Habitat.Value +Open_Space_area +
+	Rye_area+Grassland_Pasture_area,data=high_qual.na_patch,method="class")
+
+rpart.model <- rpart(factor(field_validation2$Gopher.Presence.0.1.) ~ factor(Residential)
+	+ factor(Obs.LC) + factor(Layer.LC) +DistancetoOccurrence + +Habitat.Value +Open_Space_area +
+	Rye_area+Grassland_Pasture_area,data=field_validation2,method="class")
+dev.new()
+plot(rpart.model)
+text(rpart.model)
+printcp(rpart.model)
+
+##########################
+##########################
+install.packages('randomForest')
+require(randomForest)
+colnames(high_qual.na_patch)
+rf1<-randomForest(formula = factor(high_qual.na_patch$Gopher.Presence.0.1.>0) ~ 
+	factor(high_qual.na_patch$Residential) + factor(high_qual.na_patch$Obs.LC) + factor(high_qual.na_patch$Layer.LC) + 
+	high_qual.na_patch$DistancetoOccurrence +high_qual.na_patch$Habitat.Value +high_qual.na_patch$Open_Space_area +
+	high_qual.na_patch$Rye_area+high_qual.na_patch$Grassland_Pasture_area, data = high_qual.na_patch, importance = T, na.action = na.exclude)
+dev.new()
+plot(rf1)
+rf1$importance
+varImpPlot(rf1)
+
+rf2<-randomForest(formula = factor(high_qual.na$Gopher.Presence.0.1.) ~ 
+	factor(high_qual.na_patch$Residential) + factor(high_qual.na_patch$Obs.LC) + factor(high_qual.na_patch$Layer.LC) + 
+	high_qual.na_patch$DistancetoOccurrence +high_qual.na_patch$Habitat.Value +high_qual.na_patch$Open_Space_area +
+	high_qual.na_patch$Rye_area+high_qual.na_patch$Grassland_Pasture_area, data = high_qual.na_patch, importance = T, na.action = na.exclude)
+rf2$importance
+varImpPlot(rf2)
+rf2[1]
+plot(rf2)
