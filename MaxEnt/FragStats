@@ -1,0 +1,262 @@
+install.packages('raster')
+install.packages('landscapemetrics')
+install.packages('landscapetools')
+memory.limit(size=10000000)
+require(raster)
+require(rgdal)
+require(landscapemetrics)
+require(landscapetools)
+
+
+#field_validation<-read.csv(choose.files())
+field_validation<-read.csv(GH_area_full,"C:\\Users\\Nathan\\Desktop\\Gopher\\Field validation\\NAD83_rasters\\full_withArea.csv")
+head(field_validation)
+
+high_qual<-field_validation[which(field_validation$Habitat.Value>.66),]
+
+class(high_qual)
+high_qual.na<-high_qual[which(high_qual$Gopher.Presence.0.1. !='NA'),]
+
+head(high_qual.na)
+
+ras_cov<-raster(choose.files())
+ras_hab<-raster("C:\\Users\\Nathan\\Desktop\\Gopher\\Field validation\\Reclass_SDM.asc")
+plot(ras_hab)
+
+val_sp<-SpatialPointsDataFrame(coords=cbind(field_validation$Point.Long,
+	field_validation$Point.Lat), data=field_validation)
+
+val_sp_qual<-SpatialPointsDataFrame(coords=cbind(high_qual.na$Point.Long,high_qual.na$Point.Lat),data=high_qual.na)
+
+##projections in R did not maintain even cell size, so use projections in ArcMap
+#occ_sp<-readOGR("C:\\Users\\naale\\OneDrive\\Desktop\\gopher_presences\\Full presence locations",
+#	layer="TrapSurveyPresences_2020")
+
+#proj4string(val_sp_qual)<-CRS("+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs +towgs84=0,0,0")
+#proj4string(occ_sp)<-CRS("+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs +towgs84=0,0,0")
+#crs(ras_hab)<-crs(ras_cov)
+#val_sp_qual_83<-spTransform(val_sp_qual,CRS("+proj=utm +zone=16+datum=NAD83"))
+#ras_cov_83<-projectRaster(ras_cov,crs="+proj=utm +zone=16  +datum=WGS84 +units=m",method='ngb')
+#ras_hab_83<-projectRaster(ras_hab,crs="+proj=utm +zone=16  +datum=WGS84 +units=m",method='ngb')
+#writeRaster(ras_cov_83,"C:\\Users\\Nathan\\Desktop\\Gopher\\Field validation\\NAD83_rasters\\landcover.tif")
+#writeRaster(ras_hab_83,"C:\\Users\\Nathan\\Desktop\\Gopher\\Field validation\\NAD83_rasters\\reclassSDM.tif")
+#writeOGR(val_sp_qual_83,"C:\\Users\\Nathan\\Desktop\\Gopher\\Field validation\\NAD83_rasters",layer="high_qual_83",driver="ESRI Shapefile")
+
+
+plot(ras_cov)
+points(val_sp,pch=17,col='black')
+points(occ_sp,pch=17,col='cyan')
+dev.new()
+CRS(val_sp_qual)
+
+val_sp_qual_83<-readOGR(dsn="C:\\Users\\Nathan\\Desktop\\Gopher\\Field validation\\NAD83_rasters",layer="high_qual_UTM83")
+ras_cov_83<-raster("C:\\Users\\Nathan\\Desktop\\Gopher\\Field validation\\NAD83_rasters\\LC_83_tif.tif")
+full_sp_qual_83<-readOGR(dsn="C:\\Users\\Nathan\\Desktop\\Gopher\\Field validation\\NAD83_rasters",layer="full_NAD83")
+
+#Points and rasters need to be in NAD83 Zone 16. Size refers to the radius in meters.
+frag_val<-landscapemetrics::sample_lsm(ras_cov_83,val_sp_qual_83,shape='circle',size=500,verbose=TRUE, progress=TRUE,return_raster=TRUE,
+	level=c('class','patch'),type=c("area and edge metric","shape metric","core area metric"))
+dev.new()
+plot(full_sp_qual_83)
+frag_val_full<-landscapemetrics::sample_lsm(ras_cov_83,full_sp_qual_83,shape='circle',size=500,verbose=TRUE, progress=TRUE,return_raster=TRUE,
+	level=c('class','patch'),type=c("area and edge metric","shape metric","core area metric"))
+
+#metrics that work: area and edge metric, shape metric,core area metric
+#metrics that failed: agrregation metrics, complexity metric
+#name=c("patch area"))#,type=c("area and edge metric","diversity metric","core area metric"))
+
+
+#Check which values are correlated. 
+cor_val<-calculate_correlation(frag_val)
+cor_val[1]
+
+cor_val_full<-calculate_correlation(frag_val_full)
+cor_val_full[1]
+cor_val_full
+
+non_cor_patch<-cor_val$patch[which(cor_val$patch$value<.8),]
+head(non_cor_class,250)
+data.frame(non_cor_class)
+non_cor_class<-cor_val$class[which(cor_val$class$value<.8),]
+non_cor_class
+
+non_cor_patch_full<-cor_val_full$patch[which(cor_val_full$patch$value<.8),]
+head(non_cor_patch_full,250)
+data.frame(non_cor_patch)
+non_cor_class_full<-cor_val$class[which(cor_val_full$class$value<.8),]
+non_cor_class
+
+frag_hab_ar<-landscapemetrics::sample_lsm(ras_hab_83,val_sp_qual_83,shape='circle',size=500,verbose=TRUE, progress=TRUE,return_raster=TRUE,
+	level='patch',name=c('patch area'))
+
+#name=c('contiguity index'))
+#,'perimeter-area ratio','patch area'))
+#c("area and edge metric","diversity metric","core area metric"))
+
+frag_val_con<-landscapemetrics::sample_lsm(ras_cov_83,val_sp_qual_83,shape='circle',size=500,verbose=TRUE, progress=TRUE,return_raster=TRUE,
+	level='patch',name=c('contiguity index'))
+
+frag_val_con_full<-landscapemetrics::sample_lsm(ras_cov_83,full_sp_qual_83,shape='circle',size=500,verbose=TRUE, progress=TRUE,return_raster=TRUE,
+	level='patch',name=c('contiguity index'))
+
+frag_hab_con<-landscapemetrics::sample_lsm(ras_hab_83,val_sp_qual_83,shape='circle',size=500,verbose=TRUE, progress=TRUE,return_raster=TRUE,
+	level='patch',name=c('contiguity index'))
+
+plot(frag_hab$raster_sample_plots[[850]])
+
+
+shape <- calculate_lsm(ras_hab_83,level="class",type="shape metric")
+
+require(ggplot2)
+frag_val
+dev.new()
+
+###break up the metrics into metrics and habitat types
+
+frag_val_ar<-frag_val[which(frag_val$metric=='area'),]
+ar_op<-frag_val_ar[which(frag_val_ar$class==121),]
+ar_Rye<-frag_val_ar[which(frag_val_ar$class==27),]
+ar_grass<-frag_val_ar[which(frag_val_ar$class==176),]
+GH_ar<-rbind(ar_op,ar_grass,ar_Rye)
+
+##aggregate information 
+GH_ar_op_ag<-aggregate(ar_op$value,by=list(ar_op$plot_id),FUN='sum')
+colnames(GH_ar_op_ag)<-c("plot_id","area")
+
+GH_ar_Rye_ag<-aggregate(ar_Rye$value,by=list(ar_Rye$plot_id),FUN='sum')
+colnames(GH_ar_Rye_ag)<-c("plot_id","area")
+
+GH_ar_grass_ag<-aggregate(ar_grass$value,by=list(ar_grass$plot_id),FUN='sum')
+colnames(GH_ar_grass_ag)<-c("plot_id","area")
+
+##Open space aggregation doesn't have a value for plot 34
+##Rye only has values for plots 49, 57, 69, 70
+##Grass does not have values for 4,6,7,10,18,19,26,27,33,35,37,38,39,42,,47,48,59,64,72,82,84,86
+
+### Createa for loop to populate a new data frame with the values
+GH_area_com<-matrix(0,ncol=4,nrow=90)
+GH_area_com[,1]<-1:90
+colnames(GH_area_com)<-c("plot_id","Open_Space_area","Rye_area","Grassland_Pasture_area")
+
+for(i in GH_ar_op_ag$plot_id){
+	print(i)
+	GH_area_com[i,2]<-GH_ar_op_ag[which(GH_ar_op_ag$plot_id==i),2]
+}
+for(i in GH_ar_Rye_ag$plot_id){
+	GH_area_com[i,3]<-GH_ar_Rye_ag[which(GH_ar_Rye_ag$plot_id==i),2]
+}
+for(i in GH_ar_grass_ag$plot_id){
+	GH_area_com[i,4]<-GH_ar_grass_ag[which(GH_ar_grass_ag$plot_id==i),2]
+}
+
+GH_area_com 
+#####full data set
+
+
+frag_full_ar<-frag_val_full[which(frag_val_full$metric=='area'),]
+ar_op_full<-frag_full_ar[which(frag_full_ar$class==121),]
+ar_Rye_full<-frag_full_ar[which(frag_full_ar$class==27),]
+ar_grass_full<-frag_full_ar[which(frag_full_ar$class==176),]
+GH_ar_full<-rbind(ar_op_full,ar_grass_full,ar_Rye_full)
+
+##aggregate information 
+GH_ar_op_ag_full<-aggregate(ar_op_full$value,by=list(ar_op_full$plot_id),FUN='sum')
+colnames(GH_ar_op_ag_full)<-c("plot_id","area")
+
+GH_ar_Rye_ag_full<-aggregate(ar_Rye_full$value,by=list(ar_Rye_full$plot_id),FUN='sum')
+colnames(GH_ar_Rye_ag_full)<-c("plot_id","area")
+
+GH_ar_grass_ag_full<-aggregate(ar_grass_full$value,by=list(ar_grass_full$plot_id),FUN='sum')
+colnames(GH_ar_grass_ag_full)<-c("plot_id","area")
+
+##Open space aggregation doesn't have a value for plot 34
+##Rye only has values for plots 49, 57, 69, 70
+##Grass does not have values for 4,6,7,10,18,19,26,27,33,35,37,38,39,42,,47,48,59,64,72,82,84,86
+GH_ar_op_ag_full
+
+### Createa for loop to populate a new data frame with the values
+GH_area_full<-matrix(0,ncol=4,nrow=197)
+GH_area_full[,1]<-1:197
+colnames(GH_area_full)<-c("plot_id","Open_Space_area","Rye_area","Grassland_Pasture_area")
+
+for(i in GH_ar_op_ag_full$plot_id){
+	print(i)
+	GH_area_full[i,2]<-GH_ar_op_ag_full[which(GH_ar_op_ag_full$plot_id==i),2]
+}
+for(i in GH_ar_Rye_ag_full$plot_id){
+	GH_area_full[i,3]<-GH_ar_Rye_ag_full[which(GH_ar_Rye_ag_full$plot_id==i),2]
+}
+for(i in GH_ar_grass_ag_full$plot_id){
+	GH_area_full[i,4]<-GH_ar_grass_ag_full[which(GH_ar_grass_ag_full$plot_id==i),2]
+}
+
+GH_area_full 
+
+write.csv(GH_area_full,"C:\\Users\\Nathan\\Desktop\\Gopher\\Field validation\\NAD83_rasters\\full_withArea.csv")
+
+
+ggplot(GH_ar, aes(fill=as.factor(class), y=value, x=plot_id)) + 
+    geom_bar(position=position_dodge(),stat="identity")
+
+
+ggplot(frag_val[which(frag_val$metric=="area"),], aes(fill=class, y=value, x=plot_id)) + 
+    geom_bar(position="fill", stat="identity")
+
+
+hab_area<-frag_hab[which(frag_hab$metric=="area"),]
+total_hab<-aggregate(hab_area$value,by=list(c(hab_area$plot_id,hab_area$class)),FUN='sum')
+
+
+#missing patch 5
+missing_val<-cbind(5,0)
+
+colnames(missing_val)<-colnames(total_hab_VG)
+total_hab_VG_full<-rbind(total_hab_VG[1:4,],missing_val,total_hab_VG[5:89,])
+trial
+colnames(total_hab_VG_full)<-c("point_id","VG_area_1km")
+
+hab_area_G<-hab_area[which(hab_area$class==4),]
+total_hab_G<-aggregate(hab_area_G$value,by=list(hab_area_G$plot_id),FUN='sum')
+colnames(total_hab_G)<-c("point_id","G_area_1km")
+
+hab_contig<-frag_val_con[which(frag_hab_con$metric=="contig"),]
+hab_contig_VG<-hab_contig[which(hab_contig$class==5),]
+total_hab_con_VG<-aggregate(hab_contig_VG$value,by=list(hab_contig_VG$plot_id),FUN='mean')
+total_hab_con_VG
+(total_hab_VG)
+
+#missing patch 5
+missing_conval<-cbind(5,0)
+
+colnames(missing_conval)<-colnames(total_hab_con_VG)
+total_hab_con_VG_full<-rbind(total_hab_con_VG[1:4,],missing_conval,total_hab_con_VG[5:89,])
+colnames(total_hab_con_VG_full)<-c("point_id","mean_VG_con")
+
+hab_contig_G<-hab_contig[which(hab_contig$class==4),]
+total_hab_con_G<-aggregate(hab_contig_G$value,by=list(hab_contig_G$plot_id),FUN='mean')
+total_hab_con_G
+colnames(total_hab_con_G)<-c("point_id","mean_G_con")
+
+high_qual_comb<-cbind(high_qual.na1,total_hab_VG_full,total_hab_G,total_hab_con_VG_full,total_hab_con_G)
+
+###Contagion
+dev_op<-frag_val_con[which(frag_val_con$class==121),]
+dev_op
+Rye<-frag_val_con[which(frag_val_con$class==27),]
+grass<-frag_val_con[which(frag_val_con$class==176),]
+GH<-rbind(dev_op,grass,Rye)
+GH_con<-aggregate(GH$value,by=list(GH$plot_id,GH$class),FUN='mean')
+
+ggplot(GH, aes(fill=as.factor(class), y=value, x=plot_id)) + 
+    geom_bar(position=position_dodge(),stat="identity")
+
+ggplot(frag_hab[which(frag_hab$metric=="area"),], 
+	aes(fill=frag_hab[which(frag_hab$class==5),], y=metric, x=plot_id)) +
+	geom_bar(stat='identity')
+
+ggplot(frag_hab_ar[which(frag_hab_ar$class>0),], 
+	aes(fill=class, y=value, x=plot_id)) +
+	geom_bar(stat='identity')
+
+ggplot(frag_val[which(frag_val$metric=="area"),], aes(fill=class, y=value, x=plot_id)) + 
+    geom_bar(position="fill", stat="identity")
