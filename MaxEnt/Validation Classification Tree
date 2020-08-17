@@ -7,7 +7,6 @@ require(rgdal)
 require(geosphere)
 
 field_validation<-read.csv(choose.files())
-field_validation<-read.csv(GH_area_full,"C:\\Users\\Nathan\\Desktop\\Gopher\\Field validation\\NAD83_rasters\\full_withArea.csv")
 head(field_validation)
 
 head(field_validation)
