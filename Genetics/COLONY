@@ -1,0 +1,109 @@
+related<-read.csv(choose.files()) #read in csv of related individuals with trap locations
+full_data<-read.csv("C:\\Users\\Nathan\\Desktop\\Gopher\\Full_data_historic.csv")
+related_sibs<-read.csv("C:\\Users\\Nathan\\Desktop\\Gopher\\COLONY\\Colony Related\\Historic_Gopher_sibling.csv")
+related_sibs_1<-read.csv("C:\\Users\\Nathan\\Desktop\\Gopher\\COLONY\\Colony Related\\Historic_Gopher_sibling.csv")
+related_sibs_2<-read.csv("C:\\Users\\Nathan\\Desktop\\Gopher\\COLONY\\Colony Related\\Historic_Gopher_sibling.csv")
+
+boxplot(related_sibs$Probability)
+
+###########
+###########
+
+###Limit the data that we're working with to just be coordinates
+###because merging will impact the order, we first merge the second offspring
+###with the pairwise relations first. We can then order by the first offspring.
+###This will allow us to verify that orders and probability were maintained.
+
+colnames(full_data)
+dim(full_data)
+head(full_data)
+full_data_coords<-data.frame(full_data$Comb_ID,full_data$Long,full_data$Lat,full_data$Year,full_data[,28:41])
+head(full_data_coords)
+colnames(full_data_coords)<-c("Comb_ID","Long","Lat","Year","GBR06_1_off2","GBR06_2_off2","GBR09_1_off2",
+	"GBR09_2_off2","TM1_1_off2","TM1_2_off2","GBR10_1_off2","GBR10_2_off2","TM6_1_off2","TM6_2_off2",
+	"GBR25_1_off2","GBR_2_off2","GBR27_1_off2","GBR27_2_off2")
+colnames(related_sibs_1)<-c("off1","Comb_ID","Probability")
+off1<-merge(related_sibs_1,full_data_coords,by="Comb_ID",sort=FALSE)
+head(off1)
+colnames(off1)<-c('off2','Comb_ID','Probability','Long_off2','Lat_off2',"Year_off2",
+	"GBR06_1_off2","GBR06_2_off2","GBR09_1_off2",
+	"GBR09_2_off2","TM1_1_off2","TM1_2_off2","GBR10_1_off2","GBR10_2_off2","TM6_1_off2","TM6_2_off2",
+	"GBR25_1_off2","GBR_2_off2","GBR27_1_off2","GBR27_2_off2")
+colnames(full_data_coords)<-c("Comb_ID","Long","Lat","Year","GBR06_1_off1","GBR06_2_off1","GBR09_1_off1",
+	"GBR09_2_off1","TM1_1_off1","TM1_2_off1","GBR10_1_off1","GBR10_2_off1","TM6_1_off1","TM6_2_off1",
+	"GBR25_1_off1","GBR_2_off1","GBR27_1_off1","GBR27_2_off1")
+
+sibs_coords<-merge(off1,full_data_coords,by="Comb_ID")
+colnames(sibs_coords)
+sib_coords<-data.frame(sibs_coords[,1:3],sibs_coords[,21:22],sibs_coords[,4:5],sibs_coords[,23],
+	sibs_coords[,6],sibs_coords[,24:37],sibs_coords[,7:20])
+head(sib_coords)
+colnames(sib_coords)<-c('off1','off2','Probability','Long_off1','Lat_off1','Long_off2','Lat_off2',
+	"Year_off1","Year_off2",
+	"GBR06_1_off1","GBR06_2_off1","GBR09_1_off1",
+	"GBR09_2_off1","TM1_1_off1","TM1_2_off1","GBR10_1_off1","GBR10_2_off1","TM6_1_off1","TM6_2_off1",
+	"GBR25_1_off1","GBR_2_off1","GBR27_1_off1","GBR27_2_off1",
+	"GBR06_1_off2","GBR06_2_off2","GBR09_1_off2",
+	"GBR09_2_off2","TM1_1_off2","TM1_2_off2","GBR10_1_off2","GBR10_2_off2","TM6_1_off2","TM6_2_off2",
+	"GBR25_1_off2","GBR_2_off2","GBR27_1_off2","GBR27_2_off2")
+
+
+#check
+head(sibs_coords,10)
+head(related_sibs,10)
+sibs_coords
+related_sibs
+##Based on our merges, the coordinates for offspring 1 are in the 6&7 columns
+
+Coords1<-cbind(sib_coords[,4:5])
+
+#get the coordinates of individual 2 (parent/sibling)
+Coords2<-cbind(sib_coords[,6:7])
+
+#plot the points to visualize
+plot(Coords1)
+points(Coords2, pch=17)
+
+##Create spatial points
+
+require(sp)
+#individual 1
+related<-SpatialPoints(Coords1)
+plot(related)
+#individual 2
+related2<-SpatialPoints(Coords2)
+plot(related2,add=TRUE,pch=17)
+
+
+require(geosphere)
+
+#calculate the geodesic distance between the 2 points relying on the earth as an ellipsoid
+distances<-distGeo(Coords1,Coords2)
+head(distances)
+colnames(sib_coords)
+related_out<-cbind(sib_coords[,1:7],distances,sib_coords[,8:37])
+colnames(related_out)
+related_out_high<-related_out[which(related_out$Probability>.9),]
+dim(related_out_high)
+related_out_high.na<-na.omit(related_out_high)
+dim(related_out_high.na)
+segments(Coords1[,1],Coords1[,2],Coords2[,1],Coords2[,2],lty=1,lwd=2,col="black")
+
+require(ggplot2)
+dim(related_out_high)
+Relation<-data.frame(rep("Sibling",26))
+Relation
+WithinSite<-data.frame(related_out_high.na,Relation)
+boxplot(WithinSite$distances)
+plot(WithinSite$distances)
+ggplot(data=WithinSite, aes(WithinSite$distances,fill=WithinSite$Relation)) + 
+  geom_histogram(breaks=seq(0, 50000, by=1000), col="black") +
+  scale_fill_grey() + theme_bw() +
+  guides(fill=guide_legend(title="Relationship"))+
+  labs(x = "Distance (m)", y = "Count")
+
+#Check output file
+
+related_out
+write.csv(related_out,"C:/Users/Nathan/Desktop/Related_Distances.csv")
+write.csv(WithinSite,"C:/Users/Nathan/Desktop/Related_Distances_NA.csv")
