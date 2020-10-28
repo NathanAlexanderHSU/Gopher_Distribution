@@ -1,6 +1,7 @@
 require(rgdal)
 require(raster)
 require(spThin)
+require(geosphere)
 
 current<-readOGR("C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles",layer="TotalPts_Apr2020")
 historic_INHS<-readOGR("C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles",layer="historic_inhs_1950s_oct2020")
@@ -40,5 +41,14 @@ plot(range)
 points(hist_thin_spdf)
 points(current_thin_spdf,pch=17)
 
+
+#######Create random background points
+
+set.seed(1)
+random_sp<-spsample(range,n=100,"random")
+random_spdf<-SpatialPointsDataFrame(random_sp,data=data.frame(random_sp))
+points(random_sp,col='red')
+min(na.omit(distGeo(random_sp)))
 writeOGR(current_thin_spdf,"C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles",layer="current_wgs84_thinned",driver="ESRI Shapefile")
 writeOGR(hist_thin_spdf,"C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles",layer="hist_wgs84_thinned",driver="ESRI Shapefile")
+writeOGR(random_spdf,"C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles","background_hist",driver="ESRI Shapefile")
