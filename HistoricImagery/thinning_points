@@ -1,0 +1,44 @@
+require(rgdal)
+require(raster)
+require(spThin)
+
+current<-readOGR("C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles",layer="TotalPts_Apr2020")
+historic_INHS<-readOGR("C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles",layer="historic_inhs_1950s_oct2020")
+historic_FM<-readOGR("C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles",layer="FieldMuseumHist_wgs84_1950s")
+range<-readOGR("C:\\Users\\Nathan\\Desktop\\Gopher\\Political Boundaries\\Hoffman Range",layer="Geomys_HoffmanRange_Wgs84")
+
+crs(current)<-crs(historic_INHS)
+current_m<-crop(current,range)
+historic_I_m<-crop(historic_INHS,range)
+historic_F_m<-crop(historic_FM,range)
+
+plot(range)
+points(current_m,pch=17,col='blue')
+points(historic_I_m,pch=17,col='red')
+points(historic_F_m,pch=17,col='forestgreen')
+
+historic<-union(historic_I_m,historic_F_m)
+
+points(historic,pch=17,col='cyan')
+
+set.seed(1)
+current_thin<-data.frame(thin.algorithm(data.frame(coordinates(current_m)),thin.par=1,rep=1))
+hist_thin<-data.frame(thin.algorithm(data.frame(coordinates(historic)),thin.par=1,rep=1))
+
+current_thin_df<-data.frame(rownames(current_thin),current_thin)
+colnames(current_thin_df)<-c("ID","Longitude","Latitude")
+current_thin_df
+current_thin_spdf<-SpatialPointsDataFrame(current_thin_df[,2:3],proj4string=crs(current_m),data=current_thin_df)
+current_thin_spdf
+
+
+hist_thin_df<-data.frame(rownames(hist_thin),hist_thin)
+colnames(hist_thin_df)<-c("ID","Longitude","Latitude")
+hist_thin_spdf<-SpatialPointsDataFrame(hist_thin_df[,2:3],proj4string=crs(historic),data=hist_thin_df)
+
+plot(range)
+points(hist_thin_spdf)
+points(current_thin_spdf,pch=17)
+
+writeOGR(current_thin_spdf,"C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles",layer="current_wgs84_thinned",driver="ESRI Shapefile")
+writeOGR(hist_thin_spdf,"C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles",layer="hist_wgs84_thinned",driver="ESRI Shapefile")
