@@ -1,0 +1,39 @@
+require(spatialEco)
+require(rmaxent)
+require(rgdal)
+
+illinois<-readOGR(dsn='C:\\Users\\Nathan\\Desktop\\Gopher\\Political Boundaries\\Hoffman Range',layer='Geomys_HoffmanRange_Buffer')
+
+max_gbi<-import_maxent(dir="C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles\\Selected_Model_Hoffman_Feb_2020",
+                       lambdas='species.lambdas',html='maxent.html')
+
+max_gbi
+total.pts<-readOGR("C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles", layer="TotalPts_Aug2019")
+trap_sites<-readOGR("C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles",layer="Trap_Data_Jan2020")
+total.pts<-SpatialPoints(rbind(coordinates(total.pts),coordinates(trap_sites)))
+total.pts <- gIntersection(total.pts, illinois, byid=TRUE)
+pts_df<-coordinates(total.pts)
+
+total.pts
+dim(pts_df)
+thinned_pts<-thin.algorithm(pts_df,thin.par=1,rep=5)
+all.pts<-data.frame(thinned_pts[[1]])
+
+
+points(thinned_pts[[1]],pch=17)
+occ.pts_df<-read.csv('C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles\\Selected_Model_Hoffman_Feb_2020/geomys.csv')
+
+val.pts<-read.csv('C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles\\Selected_Model_Hoffman_Feb_2020/Test_pts.csv')
+
+raster_dir<-"C:\\Users\\Nathan\\Desktop\\Gopher\\fine scale raster stack\\"
+
+predictors<-stack(paste0(raster_dir,list.files(raster_dir)[5]),
+                  paste0(raster_dir,list.files(raster_dir)[6]),
+                  paste0(raster_dir,list.files(raster_dir)[8]))
+
+names(predictors)<-c("Soil Texture","Soil Drainage","Land Cover")
+
+bg <- randomPoints(predictors, 10000)
+val.pts[,2:3]
+e1 <- evaluate(max_gbi, p=val.pts[,2:3], a=bg, x=predictors)
+e1
