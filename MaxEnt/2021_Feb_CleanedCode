@@ -51,7 +51,7 @@ pairs(predictors)
 
 ### contemporary thinned points ###
 Contemp_th_pts<-readOGR(dsn="C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles",layer="current_wgs84_thinned")
-Contemp_th_pts
+
 
 historic_th_pts<-readOGR(dsn="C:\\Users\\Nathan\\Desktop\\Gopher\\historic imagery\\Gopher_presences",layer="thinned_historic_wgs84")
 
@@ -90,5 +90,53 @@ full.results <- dismo::predict(full.maxent, predictors)
 plot(full.results)
 writeRaster(full.results, "C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles\\Contemp_full/maxent.asc",
                 format="ascii")
+
+###############################
+###############################
+###Plot responses ####
+response(full.maxent)
+density(full.maxent)
+
+###############################
+###############################
+###historic MaxEnt###
+
+rast_names<-c("Precipitation SD","Precipitation Mean","Elevation","Slope","Soil Texture","Soil Drainage","Soil Sand Percentage","Land Cover")
+raster_dir_hist<-"C:\\Users\\Nathan\\Desktop\\Gopher\\historic raster stack\\"
+list.files(raster_dir_hist)
+
+predictors_hist<-raster(paste0(raster_dir_hist,list.files(raster_dir_hist)[1]))
+for (i in 2:length(list.files(raster_dir_hist))){
+	c<-raster(paste0(raster_dir_hist,list.files(raster_dir_hist)[i]))
+	predictors_hist<-stack(predictors_hist,c)
+}
+
+### compare predictors ###
+
+usdm::vif(predictors_hist)
+pairs(predictors_hist)
+
+###############################
+###############################
+full.maxent_hist <- maxent(predictors_hist, factors=c("Soil.Texture","Land.Cover"), coordinates(historic_th_pts),removeDuplicates=TRUE, args=c("betamultiplier=1", "-J", "-P"),
+				path="C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles\\Historic_full_randomBackground")
+full.results_hist <- dismo::predict(full.maxent_hist, predictors_hist)
+plot(full.results_hist)
+writeRaster(full.results, "C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles\\Historic_full_randomBackground/maxent.asc",
+                format="ascii")
+
+###############################
+###############################
+###Plot responses ####
+response(full.maxent_hist)
+density(full.maxent_hist)
+
+
+###############################
+###############################
+###comparative models###
+
+
+
 
 
