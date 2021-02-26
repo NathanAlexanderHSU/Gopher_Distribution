@@ -1,0 +1,94 @@
+####Cleaned_Code
+options(java.parameters = "-Xmx2048m")
+
+
+require(spThin)
+require(spatstat)
+require(rgdal)
+require(raster)
+require(maptools)
+require(rgeos)
+require(dismo)
+require(rJava)
+require(sp)
+require(PresenceAbsence)
+library(exifr)
+library(dplyr)
+library(leaflet)
+require(devtools)
+require(prism)
+require(stringi)
+require(sf)
+require(usdm)
+
+##### Read in the study rea ###
+
+illinois<-readOGR(dsn='C:\\Users\\Nathan\\Desktop\\Gopher\\Political Boundaries\\Hoffman Range',layer='Geomys_HoffmanRange_Buffer')
+
+### for loop to read in the created raster files ###
+
+rast_names<-c("Precipitation SD","Precipitation Mean","Elevation","Slope","Soil Texture","Soil Drainage","Soil Sand Percentage","Land Cover")
+raster_dir<-"C:\\Users\\Nathan\\Desktop\\Gopher\\fine scale raster stack\\"
+raster_dir
+list.files(raster_dir)
+
+predictors<-raster(paste0(raster_dir,list.files(raster_dir)[1]))
+for (i in 2:length(list.files(raster_dir))){
+	b<-raster(paste0(raster_dir,list.files(raster_dir)[i]))
+	predictors<-stack(predictors,b)
+}
+
+names(predictors)<-rast_names
+
+### compare predictors ###
+
+usdm::vif(predictors)
+pairs(predictors)
+
+##################################
+##################################
+### read in point files and update projections ###
+
+### contemporary thinned points ###
+Contemp_th_pts<-readOGR(dsn="C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles",layer="current_wgs84_thinned")
+Contemp_th_pts
+
+historic_th_pts<-readOGR(dsn="C:\\Users\\Nathan\\Desktop\\Gopher\\historic imagery\\Gopher_presences",layer="thinned_historic_wgs84")
+
+background_pts<-readOGR(dsn="C:\\Users\\Nathan\\Desktop\\Gopher\\historic imagery\\Gopher_presences",layer="background_wgs84")
+
+
+crs(illinois)<-crs(predictors)
+illinois_84 <- spTransform(illinois, crs(Contemp_th_pts))
+
+#################################
+#################################
+### set up maxent models to run ###
+
+# beta.parameters<-1 # Create a vector of all the beta paremeters
+beta.parameters <- c(1,2)
+
+for(i in beta.parameters){
+  print(paste("Run Maxent with", i, "as the beta parameter"))
+}
+
+all.combos <- list()
+pred.num <- nlayers(predictors)
+for(i in 2:pred.num){
+  all.combos <- c(all.combos, combn(1:pred.num, i, simplify=FALSE))
+}
+all.combos
+
+###############################
+###############################
+### run the full maxent model ###
+
+### Contemporary model ###
+full.maxent <- maxent(predictors, factors=c("Soil.Texture","Land.Cover"), coordinates(Contemp_th_pts),removeDuplicates=TRUE, args=c("betamultiplier=1", "-J", "-P"),
+				path="C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles\\Contemp_full")
+full.results <- dismo::predict(full.maxent, predictors)
+plot(full.results)
+writeRaster(full.results, "C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles\\Contemp_full/maxent.asc",
+                format="ascii")
+
+
