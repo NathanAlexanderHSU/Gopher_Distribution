@@ -134,4 +134,93 @@ density(full.maxent_hist)
 
 ###############################
 ###############################
-###comparative models###
+###comparison values###
+
+
+###Extract the Values###
+c_pred_c_occ<-extract(predictors,Contemp_th_pts)
+
+h_pred_h_occ<-extract(predictors_hist,historic_th_pts)
+
+
+###merge the data into a single data frame###
+
+c_names<-colnames(c_pred_c_occ)
+comp_data_c<-cbind("Contemporary",coordinates(Contemp_th_pts),c_pred_c_occ[,1:7])
+
+colnames(h_pred_h_occ)
+comp_data_h<-cbind("Historic",coordinates(historic_th_pts),h_pred_h_occ[,1],h_pred_h_occ[,3:8])
+head(comp_data_h)
+##build in the type colname. Make sure to note that the predictors are in different orders###
+
+colnames(comp_data_c)<-c("Type","X","Y","Precipitation.SD","Precipitation.Mean","Elevation",
+	"Slope","Soil.Texture","Soil.Drainage","Soil.Sand.Percentage")
+
+colnames(comp_data_h)<-c("Type","X","Y","Elevation","Precipitation.Mean","Precipitation.SD",
+	"Slope","Soil.Drainage","Soil.Sand.Percentage","Soil.Texture")
+
+colnames(comp_data_c)
+colnames(comp_data_h)
+comp_data_h_re<-cbind(comp_data_h[,1:3],comp_data_h[,6],comp_data_h[,5],comp_data_h[,4],
+	comp_data_h[,7],comp_data_h[,10],comp_data_h[,8],comp_data_h[,9])
+
+colnames(comp_data_h_re)<-c("Type","X","Y","Precipitation.SD","Precipitation.Mean","Elevation",
+	"Slope","Soil.Texture","Soil.Drainage","Soil.Sand.Percentage")
+(comp_data_h_re)
+comp_data<-rbind(comp_data_h_re,comp_data_c)
+comp_data_df<-as.data.frame(comp_data)
+class(comp_data_df)
+head(comp_data_df)
+
+comp_data_df$Type<-as.factor(comp_data_df$Type)
+comp_data_df$Soil.Texture<-as.factor(comp_data_df$Soil.Texture)
+
+
+mode(comp_data_df$Type)
+comp_data<-as.data.frame(comp_data)
+
+head(comp_data)
+
+require(dyplyr)
+require(tidyr)
+
+gopher_gather <- gather(comp_data_df, measure, value,"Elevation", factor_key=TRUE)
+
+#gather all the variables. Initially just test with one
+gopher_gather <- gather(comp_data_df, measure, value, "Precipitation.SD":"Soil.Sand.Percentage", factor_key=TRUE)
+head(gopher_gather)
+###plot densities ###
+
+require(ggplot2)
+ggplot(data=gopher_gather) +
+  geom_density(aes(x=as.numeric(value), fill=Type), 
+                 position="identity",
+                 alpha=0.75) +
+  facet_wrap(~measure, scales="free") +
+  theme_minimal() +
+  theme(legend.title=element_blank())+
+  xlab("Value")+ylab("Density")
+  scale_fill_manual(values=c("grey", "black")) +
+
+ggplot(data=gopher_gather) +
+  geom_histogram(aes(x=as.numeric(value), fill=Type), 
+                 position="identity",
+                 alpha=0.75) +
+  facet_wrap(~measure, scales="free") +
+  theme_minimal() +
+  theme(legend.title=element_blank())
+  scale_fill_manual(values=c("grey", "black")) +
+
+
+colnames(comp_data)
+
+
+wilcox.test(as.numeric(Soil.Sand.Percentage) ~ Type, data=comp_data) #p-value=.0004351
+wilcox.test(as.numeric(Precipitation.SD) ~ Type, data=comp_data) #p-value=.011128
+wilcox.test(as.numeric(Precipitation.Mean) ~ Type, data=comp_data) #p-value<2.2e-16
+wilcox.test(as.numeric(Elevation) ~ Type, data=comp_data)#p-value=7.115e-14
+wilcox.test(as.numeric(Slope) ~ Type, data=comp_data)#p-value=.5767
+wilcox.test(as.numeric(Soil.Drainage) ~ Type, data=comp_data)#p-value=.007369
+
+##soil texture is a factor, but wilcox has to be numeric
+wilcox.test(as.numeric(Soil.Texture) ~ Type, data=comp_data)
