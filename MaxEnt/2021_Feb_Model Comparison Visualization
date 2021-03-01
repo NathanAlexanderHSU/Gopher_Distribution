@@ -43,7 +43,7 @@ head(historic_data)
 
 require(reshape2)
 
-contemporary.m<-na.omit(melt(historic_data,id="Points"))
+contemporary.m<-na.omit(melt(contemporary_data,id="Points"))
 contemporary.m
 require(ggplot2)
 ggplot(data = contemporary.m, aes(x=Points, y=value)) + geom_boxplot(aes(fill=Points))+
@@ -53,7 +53,7 @@ guides(fill=guide_legend(title=" "))
 hp_hm_df<-data.frame(paste("Historic Points"),hp_hm)
 colnames(hp_hm_df)<-c("Points","Historic Habitat Value")
 
-bp_hm_df<-data.frame(paste("Background Points"),bp_cm)
+bp_hm_df<-data.frame(paste("Background Points"),bp_hm)
 colnames(bp_hm_df)<-c("Points","Historic Habitat Value")
 
 historic_data<-rbind(hp_hm_df,bp_hm_df)
@@ -71,9 +71,15 @@ guides(fill=guide_legend(title=" "))
 historic_m<-import_maxent(dir="C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles\\Selected_Model_Hoffman_historic",
 	lambdas="species.lambdas",html='maxent.html')
 
+historic_r<-raster("C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles\\Selected_Model_Hoffman_historic\\maxent.asc")
+
 contemporary_m<-import_maxent(dir="C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles\\Selected_Model_Hoffman_Feb_2020",
                        lambdas='species.lambdas',html='maxent.html')
 
+contemporary_r<-raster("C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles\\Selected_Model_Hoffman_Feb_2020\\maxent.asc")
+dev.new()
+plot(contemporary_r)
+plot(historic_r)
 response(historic_m)
 dev.new()
 response(contemporary_m)
@@ -81,4 +87,3 @@ response(contemporary_m)
 niche<-nicheOverlap(historic, contemp, stat='I', mask=TRUE, checkNegatives=TRUE)
 niche
 
-density(
