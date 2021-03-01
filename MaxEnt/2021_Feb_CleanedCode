@@ -224,3 +224,58 @@ wilcox.test(as.numeric(Soil.Drainage) ~ Type, data=comp_data)#p-value=.007369
 
 ##soil texture is a factor, but wilcox has to be numeric
 wilcox.test(as.numeric(Soil.Texture) ~ Type, data=comp_data)
+
+#############################
+#############################
+
+Compare the background points for the variables that change
+
+background_pts<-readOGR(dsn="C:\\Users\\Nathan\\Desktop\\Gopher\\historic imagery\\Gopher_presences",layer="background_wgs84")
+
+c_pred_bg<-raster::extract(predictors,background_pts)
+h_pred_bg<-raster::extract(predictors_hist,background_pts)
+
+### merge together ###
+###merge the data into a single data frame###
+
+c_bg_names<-colnames(c_pred_bg)
+comp_data_c_bg<-cbind("Contemporary Background",coordinates(background_pts),c_pred_bg[,1:7])
+
+colnames(h_pred_bg)
+comp_data_h_bg<-cbind("Historic Background",coordinates(background_pts),h_pred_bg[,1],h_pred_bg[,3:8])
+head(comp_data_h_bg)
+##build in the type colname. Make sure to note that the predictors are in different orders###
+
+colnames(comp_data_c_bg)<-c("Type","X","Y","Precipitation.SD","Precipitation.Mean","Elevation",
+	"Slope","Soil.Texture","Soil.Drainage","Soil.Sand.Percentage")
+
+colnames(comp_data_h_bg)<-c("Type","X","Y","Elevation","Precipitation.Mean","Precipitation.SD",
+	"Slope","Soil.Drainage","Soil.Sand.Percentage","Soil.Texture")
+
+colnames(comp_data_c_bg)
+colnames(comp_data_h_bg)
+comp_data_h_bg_re<-cbind(comp_data_h_bg[,1:3],comp_data_h_bg[,6],comp_data_h_bg[,5],comp_data_h_bg[,4],
+	comp_data_h_bg[,7],comp_data_h_bg[,10],comp_data_h_bg[,8],comp_data_h_bg[,9])
+
+colnames(comp_data_h_bg_re)<-c("Type","X","Y","Precipitation.SD","Precipitation.Mean","Elevation",
+	"Slope","Soil.Texture","Soil.Drainage","Soil.Sand.Percentage")
+
+comp_data_bg<-rbind(comp_data_h_bg_re,comp_data_c_bg)
+comp_data_bg_df<-as.data.frame(comp_data_bg)
+class(comp_data_bg_df)
+head(comp_data_bg_df)
+
+gopher_gather_bg <- gather(comp_data_bg_df, measure, value, "Precipitation.SD":"Precipitation.Mean", factor_key=TRUE)
+
+
+ggplot(data=gopher_gather_bg) +
+  geom_density(aes(x=as.numeric(value), fill=Type), 
+                 position="identity",
+                 alpha=0.75) +
+  facet_wrap(~measure, scales="free") +
+  theme_minimal() +
+  theme(legend.title=element_blank())+
+  xlab("Value")+ylab("Density")
+  scale_fill_manual(values=c("grey", "black")) +
+
+
