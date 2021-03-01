@@ -271,7 +271,7 @@ colnames(comp_data_h_bg_re)<-c("Type","X","Y","Precipitation.SD","Precipitation.
 
 head(comp_data_h_bg)
 
-comp_data_bg<-rbind(comp_data_h_bg_re,comp_data_c_bg)
+comp_data_bg<-rbind(comp_data_c_bg,comp_data_h_bg_re)
 comp_data_bg_df<-as.data.frame(comp_data_bg)
 class(comp_data_bg_df)
 head(comp_data_bg_df)
@@ -293,5 +293,30 @@ wilcox.test(as.numeric(Land.Cover) ~ Type, data=comp_data_bg_df)
 wilcox.test(as.numeric(Precipitation.SD) ~ Type, data=comp_data_bg_df)
 wilcox.test(as.numeric(Precipitation.Mean) ~ Type, data=comp_data_bg_df)
 
+########################################
+########################################
+### landscape shift at gopher locations###
+c_land_h_occ<-raster::extract(contemp_reduced,historic_th_pts)
+h_land_h_occ<-raster::extract(predictors_hist[[2]],historic_th_pts)
+
+comp_land<-cbind("Contemporary Landcover",c_land_h_occ)
+hist_land<-cbind("Historic Landcover",h_land_h_occ)
+
+gopher_land<-rbind(comp_land,hist_land)
+colnames(gopher_land)<-c("Time","Land.Cover")
+
+gopher_land_gather <- gather(data.frame(gopher_land), measure, value, "Land.Cover", factor_key=TRUE)
+
+
+ggplot(data=gopher_land_gather) +
+  geom_density(aes(x=as.numeric(value), fill=Time), 
+                 position="identity",
+                 alpha=0.75) +
+  facet_wrap(~measure, scales="free") +
+  theme_minimal() +
+  theme(legend.title=element_blank())+
+  xlab("Value")+ylab("Density")
+
+wilcox.test(as.numeric(Land.Cover) ~ Time, data=gopher_land)
 
 
