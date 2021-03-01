@@ -86,4 +86,3 @@ response(contemporary_m)
 
 niche<-nicheOverlap(historic, contemp, stat='I', mask=TRUE, checkNegatives=TRUE)
 niche
-
