@@ -289,4 +289,9 @@ ggplot(data=gopher_gather_bg) +
   xlab("Value")+ylab("Density")
   scale_fill_manual(values=c("grey", "black")) +
 
+wilcox.test(as.numeric(Land.Cover) ~ Type, data=comp_data_bg_df)
+wilcox.test(as.numeric(Precipitation.SD) ~ Type, data=comp_data_bg_df)
+wilcox.test(as.numeric(Precipitation.Mean) ~ Type, data=comp_data_bg_df)
+
+
 
