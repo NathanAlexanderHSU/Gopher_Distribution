@@ -1,0 +1,15 @@
+contemporary_raster<-raster(choose.files())
+(contemporary_raster)
+historic_raster<-raster(choose.files())
+plot(historic_raster)
+historic_raster
+re_values<-matrix(c(0,0,NA,1,57,1,58,61,4,63,64,3,65,65,4,66,77,3,92,112,9,
+	121,121,4,122,122,5,123,123,6,124,124,10,131,131,4,141,152,3,176,176,4,
+	190,195,9,204,255,1),ncol=3,byrow=TRUE)
+
+head(re_values)
+
+contemp_reduced<-raster::reclassify(contemporary_raster,re_values,right=NA)
+
+plot(contemp_reduced)
+writeRaster(contemp_reduced,"C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles\\Comparison Models\\Reduced_Contemp_landcover/red_land.asc")
