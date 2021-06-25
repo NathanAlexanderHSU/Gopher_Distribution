@@ -1,0 +1,360 @@
+ls()
+options(java.parameters = "-Xmx8000m")
+remove.packages('rJava')
+install.packages("spatstat")
+install.packages("rgdal")
+install.packages("raster")
+install.packages("maptools")
+install.packages("rgeos")
+install.packages("rJava")
+install.packages("sp")
+install.packages("PresenceAbsence")
+install.packages('devtools')
+install.packages('exifr')
+install.packages('dplyr')
+install.packages('leaflet')
+install.packages('tidyverse')
+install.packages('dismo')
+install.packages('prism',dependencies=TRUE)
+install.packages('spThin')
+install.packages('stringi')
+install.packages('sf')
+install.packages('usdm')
+install.packages('dismo')
+library('rJava')
+install.packages('boxr')
+require(boxr)
+require(spThin)
+require(spatstat)
+require(rgdal)
+require(raster)
+require(maptools)
+require(rgeos)
+require(dismo)
+require(rJava)
+require(sp)
+require(PresenceAbsence)
+library(exifr)
+library(dplyr)
+library(leaflet)
+require(devtools)
+require(prism)
+require(stringi)
+require(prism)
+require(sf)
+require(usdm)
+get_maxent(version = "latest", quiet = FALSE)
+
+##initial gopher shape files
+#illinois<-readOGR(dsn="C:/Users/Nathan/Desktop/Gopher/Presence_Only_shapefiles",layer="IL_BNDY_County_Py")
+illinois<-readOGR(dsn='C:\\Users\\Nathan\\Desktop\\Gopher\\Political Boundaries\\Hoffman Range',layer='Geomys_HoffmanRange_Buffer')
+plot(illinois)
+
+
+###Predictor Variables
+
+##elevation
+
+elev <- getData('alt', download=TRUE, country='USA', mask=TRUE)
+elev.48 <- elev[[1]]
+crs(elev.48)
+
+
+##Prism---we can read in the Raster Stack that we've already created
+
+hist_precip<-get_prism_annual(type='ppt', years=1945:1955)
+list_prism<-ls_prism_data(absPath = FALSE, name = FALSE)
+prism_1945_55<-prism_stack(list_prism)
+prism_1945_55<-prism_1945_55[[1:11]]
+
+#ann_precip<-get_prism_annual(type='ppt', years=2008:2018)
+#list_prism<-ls_prism_data(absPath = FALSE, name = FALSE)
+#prism_2008_18<-prism_stack(list_prism)
+
+#have to fix crs (switch to WGS 84) for illinois to mask
+
+prism_84 <- projectRaster(prism_1945_55,elev.48)
+
+#read in the raster stack we created
+prism_84<-stack("C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles\\PRISM_Raster\\Prism_84.tif")
+
+##crop the raster stack to be just Illinois
+cr.clim<-crop(prism_84,illinois)
+cr.clim<-mask(cr.clim,illinois)
+
+##calculate the standard deviation of precip
+sd_precip<-calc(cr.clim,sd)
+names(sd_precip)<-"Precipitation SD"
+
+##calculate the mean precip
+avg_precip<-calc(cr.clim, mean)
+names(avg_precip)<-"Precipitation Mean"
+
+##crop elevation to illinois
+cr.elev<-crop(elev.48,illinois)
+cr.elev<-mask(cr.elev,illinois)
+names(cr.elev)<-"Elevation"
+
+##soil
+
+soil<-readOGR(dsn="C:/Users/Nathan/Desktop/Gopher/Environmental Shapefiles/Soil_trial",layer="SSURGO_IL_Text1")
+
+##Use texture, drainage, and sand percentage as predictors
+
+soil_rast_texture<-rasterize(soil,land_use_rast,'texdesc')
+names(soil_rast_texture)<-"Soil Texture"
+soil_rast_texture<-mask(soil_rast_texture,illinois)
+soil_rast_drainage<-rasterize(soil,land_use_rast,'drainagecl')
+names(soil_rast_drainage)<-"Soil Drainage"
+soil_rast_drainage<-mask(soil_rast_drainage,illinois)
+soil_rast_sand<-rasterize(soil,land_use_rast,'sandtotal_')
+names(soil_rast_sand)<-"Soil Sand Percentage"
+soil_rast_sand<-mask(soil_rast_sand,illinois)
+##read in landcover type
+
+land_use_hist<-readOGR(dsn="C:/Users/Nathan/Desktop/Gopher/historic imagery",layer="Landcover_1950_Feb_9_2021")
+land_use_rast<-rasterize(land_use_hist,land_use_il,'Landcover')
+
+##Contemporary Land Use
+land_use<-raster("C:/Users/Nathan/Desktop/Gopher/Environmental Shapefiles/c2016_30m_cdls_84.img")
+
+land_use_il<-crop(land_use,illinois)
+land_use_il
+##resample to the 800m resolution of elevation
+
+#use 'ngb' for nearest neighbor. Must use this for categorical values
+
+land_use_il_re<-resample(land_use_rast,cr.elev,method='ngb')
+
+land_use_il_re<-mask(land_use_il_re,illinois)
+
+names(land_use_rast)<-"Land Cover"
+
+cr.precip_sd<-resample(sd_precip,land_use_rast)
+cr.precip_avg<-resample(avg_precip,land_use_rast)
+land_use_rast<-rasterize(land_use_hist,land_use_il,'Landcover')
+land_use_rast
+
+cr.elev<-resample(cr.elev,land_use_rast)
+##convert elevation to slope
+slope<-terrain(cr.elev,opt='slope',unit='degrees',neighbors=8)
+names(slope)<-"Slope"
+
+predictors <- stack(cr.precip_sd,cr.precip_avg,cr.elev,slope,soil_rast_texture,soil_rast_drainage,soil_rast_sand,land_use_rast)
+
+predictors
+rast_names<-c("Precipitation SD","Precipitation Mean","Elevation","Slope","Soil Texture","Soil Drainage","Soil Sand Percentage","Land Cover")
+raster_dir<-"C:\\Users\\Nathan\\Desktop\\Gopher\\historic raster stack\\"
+raster_dir
+list.files(raster_dir)
+
+#for( i in 1:length(predictors[1])){
+#writeRaster(predictors[[i]],paste0("C:/Users/Nathan/Desktop/Gopher/historic raster stack/",names(predictors[[i]]),".tif"))
+#}
+
+cr.precip_sd<-raster(paste0(raster_dir,"Precipitation.SD.tif"))
+cr.precip_avg<-raster(paste0(raster_dir,"Precipitation.Mean.tif"))
+cr.elev<-raster(paste0(raster_dir,"Elevation.tif"))
+slope<-raster(paste0(raster_dir,"Slope.tif"))
+soil_rast_texture<-raster(paste0(raster_dir,"Soil.Texture.tif"))
+soil_rast_drainage<-raster(paste0(raster_dir,"Soil.Drainage.tif"))
+soil_rast_sand<-raster(paste0(raster_dir,"Soil.Sand.Percentage.tif"))
+land_use_rast<-soil_rast_texture<-raster(paste0(raster_dir,"Land.Cover.tif"))
+
+
+
+
+
+
+predictors<-raster(paste0(raster_dir,list.files(raster_dir)[1]))
+for (i in 2:length(list.files(raster_dir))){
+	b<-raster(paste0(raster_dir,list.files(raster_dir)[i]))
+	predictors<-stack(predictors,b)
+}
+
+names(predictors)<-rast_names
+plot(predictors)
+#check correlation and variable inflation factor
+usdm::vif(predictors)
+pairs(predictors)
+
+###############################################
+###############################################
+###############################################
+
+total.pts<-readOGR("C:\\Users\\Nathan\\Desktop\\Gopher\\historic imagery\\Gopher_presences", layer="thinned_historic_wgs84")
+background.pts<-readOGR("C:\\Users\\Nathan\\Desktop\\Gopher\\historic imagery\\Gopher_presences",layer="background_wgs84")
+dev.new()
+plot(illinois)
+points(total.pts)
+points(background.pts,pch=17)
+
+
+####### Read in original raster if you want to clip to it
+#original_raster<-raster("C:\\Users\\Nathan\\Desktop\\Gopher\\Survey Design\\Min_Thresh_stand.asc")
+
+#####################
+####MAXENT CODE######
+#####################
+names(predictors)
+reduced.preds <- predictors
+
+reduced.preds
+crs(illinois)<-crs(predictors)
+crs(total.pts)<-crs(predictors)
+illinois
+total.pts
+pts_df<-coordinates(total.pts)
+total.pts
+dim(pts_df)
+
+pt_train_1<-sample(pt_total,3*length(pt_total)/4,replace=FALSE)
+pt_test<-pt_total[-pt_train_1]
+
+occ.pts<-total.pts
+
+plot(illinois)
+points(occ.pts,pch=17, col='red')
+points(val.pts,pch=17)
+
+names(predictors)
+#beta.parameters<-1 # Create a vector of all the beta paremeters
+beta.parameters <- c(1,2)
+
+for(i in beta.parameters){
+  print(paste("Run Maxent with", i, "as the beta parameter"))
+}
+plot(predictors)
+all.combos <- list()
+predictors<-reduced.preds
+pred.num <- nlayers(predictors)
+for(i in 2:pred.num){
+  all.combos <- c(all.combos, combn(1:pred.num, i, simplify=FALSE))
+}
+
+names(predictors)
+coordinates(occ.pts)
+plot(predictors)
+
+neg.maxent <- maxent(predictors, factors=c("Soil.Texture","Land.Cover"), p=coordinates(occ.pts),a=coordinates(background.pts),removeDuplicates=TRUE, args=c("betamultiplier=1", "-J", "-P"),
+				path="C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles\\Trials")
+
+all.combos
+predictors
+i<-1
+j<-24
+for(i in beta.parameters){ # Create a loop for each beta parameter
+  for(j in 25:length(all.combos)){
+
+output.dir <- paste("C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles\\MaxEnt_2021_thin1_Historic_Hoffman\\b", i, ".", 
+                        paste(all.combos[[j]], collapse=''), sep="")   
+print(output.dir)
+
+if(5 %in% all.combos[[j]]){
+	if(8 %in% all.combos[[j]]){
+		model <- maxent(predictors[[all.combos[[j]]]],factors=c("Soil.Texture","Land.Cover"), p=coordinates(occ.pts),a=coordinates(background.pts),
+			removeDuplicates=TRUE,
+            	args=c(paste("betamultiplier=", i, sep=""), "outputformat=raw"),
+                  path=output.dir)
+	
+			}
+	model <- maxent(predictors[[all.combos[[j]]]],factors=c("Soil.Texture"), p=coordinates(occ.pts),a=coordinates(background.pts), 
+			removeDuplicates=TRUE,
+            	args=c(paste("betamultiplier=", i, sep=""), "outputformat=raw"),
+                  path=output.dir)
+
+		}
+
+if(8 %in% all.combos[[j]]){ 
+		model <- maxent(predictors[[all.combos[[j]]]],factors="Land.Cover", p=coordinates(occ.pts),a=coordinates(background.pts),
+			removeDuplicates=TRUE,
+                 	args=c(paste("betamultiplier=", i, sep=""), "outputformat=raw"),
+                  path=output.dir)
+	
+		}
+
+model <- maxent(predictors[[all.combos[[j]]]], p=coordinates(occ.pts),a=coordinates(background.pts), removeDuplicates=TRUE,
+             args=c(paste("betamultiplier=", i, sep=""), "outputformat=raw"),
+             path=output.dir)
+
+	max.results <- dismo::predict(model, predictors[[all.combos[[j]]]])
+    writeRaster(max.results, paste(output.dir, "/maxent.asc", sep=""),
+                format="ascii")
+
+    print(paste(j, " of ", length(all.combos), ": ", Sys.time(), sep=""))
+  }
+  
+} 
+name <- rep("geomys",nrow(data.frame(occ.pts)))
+#have to subset longitude and latitude column based on INHS or GBIF data
+class(occ.pts)
+occ.pts
+Long<-coordinates(occ.pts)[,1]
+
+Lat<-coordinates(occ.pts)[,2]
+points(Long,Lat,col="blue")
+
+enmtools.occpts <- data.frame(name, Long, Lat)
+colnames(enmtools.occpts) <- c("Species", "X", "Y")
+write.csv(enmtools.occpts,"C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles\\MaxEnt_2021_thin1_Historic_Hoffman\\geomys.csv" , row.names=FALSE)
+output.dir
+setwd("C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles\\MaxEnt_2021_thin1_Historic_Hoffman")
+
+dirs <- list.files()
+dirs
+
+models <- NULL
+for(i in 1:length(dirs)){
+  models[i] <- paste("C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles\\MaxEnt_2021_thin1_Historic_Hoffman\\geomys.csv,",
+				"C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles\\MaxEnt_2021_thin1_Historic_Hoffman\\",dirs[i], 
+			"\\maxent.asc,C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles\\MaxEnt_2021_thin1_Historic_Hoffman\\", dirs[i],
+                    "\\species.lambdas", sep="")
+}
+
+write.csv(models, "C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles\\MaxEnt_2021_thin1_Historic_Hoffman\\maxent_models.csv", row.names=FALSE, quote=FALSE, col.names=FALSE)
+write.csv(occ.pts,"Train_pts.csv")
+write.csv(val.pts,"Test_pts.csv")
+
+occ.pts
+
+pred<-stack(predictors[[2:3]],predictors[[8]])
+pred<-predictors
+pred
+
+neg.maxent <- maxent(pred, factors=c("Land.Cover"), p=coordinates(occ.pts),a=coordinates(background.pts),removeDuplicates=TRUE, args=c("betamultiplier=1", "-J", "-P"),
+				path="C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles\\Selected_Model_Hoffman_historic")
+
+
+#neg.maxent <- maxent(pred, factors=c("Soil.Texture"), data.frame(total.pts),removeDuplicates=TRUE, args=c("betamultiplier=1", "-J", "-P","replicates=10"),
+#				path="C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles\\Selected_Model_Hoffman_replicates")
+
+class(neg.maxent)
+plot(illinois)
+InPred<-dismo::predict(neg.maxent,pred)
+plot(InPred)
+points(total.pts)
+points(val.pts,pch=17,col='red')
+pairs(predictors)
+neg.maxent_val <- maxent(pred, factors=c("Soil.Texture"), data.frame(val.pts),removeDuplicates=TRUE, args=c("betamultiplier=1", "-J", "-P"),
+				path="C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles\\Selected_Model_validation_Hoffman")
+
+
+InPred_val<-dismo::predict(neg.maxent_val,pred)
+plot(InPred_val)
+dev.new()
+plot(InPred)
+plot(predictors)
+set.seed(2)
+bg <- randomPoints(InPred, 1000)
+
+e1 <- evaluate(neg.maxent, p=val.pts, a=bg, x=pred)
+e2
+dev.new()
+plot(e1, 'ROC')
+e2 <- evaluate(neg.maxent, p=occ.pts, a=bg, x=pred)
+dev.new()
+plot(e2,'ROC')
+writeRaster(InPred,"C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles\\Selected_Model_Hoffman\\geomys_75.asc",format="ascii",overwrite=TRUE)
+threshold(e2)
+pairs(predictors)
+pairs(predict)
