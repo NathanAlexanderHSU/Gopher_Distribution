@@ -3,10 +3,9 @@ require(rmaxent)
 require(dismo)
 require(rgdal)
 
-historic<-raster('C:/Users/Nathan/Desktop/Gopher/Presence_Only_shapefiles/Selected_Model_Hoffman_historic/maxent.asc')
+historic<-raster('C:/Users/Nathan/Desktop/Gopher/Presence_Only_shapefiles/Selected_Model_Hoffman_historic/maxent_allLocs.asc')
 plot(historic)
 historic_pts<-readOGR(dsn="C:\\Users\\Nathan\\Desktop\\Gopher\\historic imagery\\Gopher_presences",layer="thinned_historic_wgs84")
-points(historic_pts)
 
 background_pts<-readOGR(dsn="C:\\Users\\Nathan\\Desktop\\Gopher\\historic imagery\\Gopher_presences",layer="background_wgs84")
 
@@ -15,6 +14,16 @@ dev.new()
 plot(contemp)
 
 contemp_pts<-readOGR("C:/Users/Nathan/Desktop/Gopher/Presence_Only_shapefiles",layer="current_wgs84_thinned")
+Contemp_th_pts<-readOGR(dsn="C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles",layer="current_wgs84_thinned")
+
+
+historic_th_pts<-readOGR(dsn="C:\\Users\\Nathan\\Desktop\\Gopher\\historic imagery\\Gopher_presences",layer="thinned_historic_wgs84")
+
+background_pts<-readOGR(dsn="C:\\Users\\Nathan\\Desktop\\Gopher\\historic imagery\\Gopher_presences",layer="background_wgs84")
+
+contemp_absences<-readOGR(dsn="C:\\Users\\Nathan\\Desktop\\Gopher\\Gopher Absences",layer="PA_absences")
+
+contemp_abs<-crop(contemp_absences,illinois)
 
 points(contemp_pts)
 
@@ -23,10 +32,12 @@ points(contemp_pts)
 hp_cm<-extract(contemp, historic_pts)
 bp_cm<-extract(contemp, background_pts)
 cp_cm<-extract(contemp, contemp_pts)
+ab_cm<-extract(contemp,contemp_abs)
 
 #historic points, historic map
 hp_hm<-extract(historic,historic_pts)
 bp_hm<-extract(historic,background_pts)
+cp_hm<-extract(historic,contemp_pts)
 
 hp_cm_df<-data.frame(paste("Historic Points"),hp_cm)
 colnames(hp_cm_df)<-c("Points","Contemporary Habitat Value")
@@ -37,8 +48,10 @@ colnames(bp_cm_df)<-c("Points","Contemporary Habitat Value")
 cp_cm_df<-data.frame(paste("Contemporary Points"),cp_cm)
 colnames(cp_cm_df)<-c("Points","Contemporary Habitat Value")
 
+ab_cm_df<-data.frame(paste("Absent Points"),ab_cm)
+colnames(ab_cm_df)<-c("Points","Contemporary Habitat Value")
 
-contemporary_data<-rbind(hp_cm_df,cp_cm_df,bp_cm_df)
+contemporary_data<-rbind(hp_cm_df,cp_cm_df,bp_cm_df,ab_cm_df)
 head(historic_data)
 
 require(reshape2)
@@ -56,11 +69,15 @@ colnames(hp_hm_df)<-c("Points","Historic Habitat Value")
 bp_hm_df<-data.frame(paste("Background Points"),bp_hm)
 colnames(bp_hm_df)<-c("Points","Historic Habitat Value")
 
-historic_data<-rbind(hp_hm_df,bp_hm_df)
+cp_hm_df<-data.frame(paste("Contemporary Points"),cp_hm)
+colnames(cp_hm_df)<-c("Points","Historic Habitat Value")
+
+historic_data<-rbind(hp_hm_df,bp_hm_df,cp_hm_df)
 head(historic_data)
 
 historic.m<-na.omit(melt(historic_data,id="Points"))
 
+dev.new()
 ggplot(data = historic.m, aes(x=Points, y=value)) + geom_boxplot(aes(fill=Points))+
 xlab("Point Type") + ylab("Historic Habitat Suitability") + ggtitle("Habitat Suitability of the Historic Model" )+
 guides(fill=guide_legend(title=" "))
