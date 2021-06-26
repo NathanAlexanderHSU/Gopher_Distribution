@@ -59,8 +59,11 @@ require(reshape2)
 contemporary.m<-na.omit(melt(contemporary_data,id="Points"))
 contemporary.m
 require(ggplot2)
+dev.new()
 ggplot(data = contemporary.m, aes(x=Points, y=value)) + geom_boxplot(aes(fill=Points))+
 xlab("Point Type") + ylab("Contemprorary Habitat Suitability") + ggtitle("Habitat Suitability of the Contemporary Model" )+
+ylim(0,1)+
+scale_fill_manual(values=c("coral2", "cyan3", "navyblue", "red4"))+
 guides(fill=guide_legend(title=" "))
 
 hp_hm_df<-data.frame(paste("Historic Points"),hp_hm)
@@ -72,7 +75,7 @@ colnames(bp_hm_df)<-c("Points","Historic Habitat Value")
 cp_hm_df<-data.frame(paste("Contemporary Points"),cp_hm)
 colnames(cp_hm_df)<-c("Points","Historic Habitat Value")
 
-historic_data<-rbind(hp_hm_df,bp_hm_df,cp_hm_df)
+historic_data<-rbind(hp_hm_df,cp_hm_df,bp_hm_df)
 head(historic_data)
 
 historic.m<-na.omit(melt(historic_data,id="Points"))
@@ -80,6 +83,8 @@ historic.m<-na.omit(melt(historic_data,id="Points"))
 dev.new()
 ggplot(data = historic.m, aes(x=Points, y=value)) + geom_boxplot(aes(fill=Points))+
 xlab("Point Type") + ylab("Historic Habitat Suitability") + ggtitle("Habitat Suitability of the Historic Model" )+
+ylim(0,1)+
+scale_fill_manual(values=c("coral2", "cyan3", "navyblue"))+
 guides(fill=guide_legend(title=" "))
 
 ########################################
