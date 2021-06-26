@@ -1,0 +1,114 @@
+require(raster)
+require(rmaxent)
+require(dismo)
+require(rgdal)
+require(gridExtra)
+
+historic<-raster('C:/Users/Nathan/Desktop/Gopher/Presence_Only_shapefiles/Selected_Model_Hoffman_historic/maxent_allLocs.asc')
+plot(historic)
+historic_pts<-readOGR(dsn="C:\\Users\\Nathan\\Desktop\\Gopher\\historic imagery\\Gopher_presences",layer="thinned_historic_wgs84")
+
+background_pts<-readOGR(dsn="C:\\Users\\Nathan\\Desktop\\Gopher\\historic imagery\\Gopher_presences",layer="background_wgs84")
+
+contemp<-raster("C:/Users/Nathan/Desktop/Gopher/Presence_Only_shapefiles/Selected_Model_Hoffman_Feb_2020/maxent.asc")
+dev.new()
+plot(contemp)
+
+contemp_pts<-readOGR("C:/Users/Nathan/Desktop/Gopher/Presence_Only_shapefiles",layer="current_wgs84_thinned")
+Contemp_th_pts<-readOGR(dsn="C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles",layer="current_wgs84_thinned")
+
+
+historic_th_pts<-readOGR(dsn="C:\\Users\\Nathan\\Desktop\\Gopher\\historic imagery\\Gopher_presences",layer="thinned_historic_wgs84")
+
+background_pts<-readOGR(dsn="C:\\Users\\Nathan\\Desktop\\Gopher\\historic imagery\\Gopher_presences",layer="background_wgs84")
+
+contemp_absences<-readOGR(dsn="C:\\Users\\Nathan\\Desktop\\Gopher\\Gopher Absences",layer="PA_absences")
+
+contemp_abs<-crop(contemp_absences,illinois)
+
+points(contemp_pts)
+
+#historic points, contemporary map
+
+hp_cm<-extract(contemp, historic_pts)
+bp_cm<-extract(contemp, background_pts)
+cp_cm<-extract(contemp, contemp_pts)
+ab_cm<-extract(contemp,contemp_abs)
+
+#historic points, historic map
+hp_hm<-extract(historic,historic_pts)
+bp_hm<-extract(historic,background_pts)
+cp_hm<-extract(historic,contemp_pts)
+
+hp_cm_df<-data.frame(paste("Historic Points"),hp_cm)
+colnames(hp_cm_df)<-c("Points","Contemporary Habitat Value")
+
+bp_cm_df<-data.frame(paste("Background Points"),bp_cm)
+colnames(bp_cm_df)<-c("Points","Contemporary Habitat Value")
+
+cp_cm_df<-data.frame(paste("Contemporary Points"),cp_cm)
+colnames(cp_cm_df)<-c("Points","Contemporary Habitat Value")
+
+ab_cm_df<-data.frame(paste("Absent Points"),ab_cm)
+colnames(ab_cm_df)<-c("Points","Contemporary Habitat Value")
+
+contemporary_data<-rbind(hp_cm_df,cp_cm_df,bp_cm_df,ab_cm_df)
+head(historic_data)
+
+require(reshape2)
+
+contemporary.m<-na.omit(melt(contemporary_data,id="Points"))
+contemporary.m
+require(ggplot2)
+dev.new()
+contemporary_boxplot<-ggplot(data = contemporary.m, aes(x=Points, y=value)) + geom_boxplot(aes(fill=Points))+
+xlab("Point Type") + ylab("Contemprorary Habitat Suitability") + ggtitle("Habitat Suitability of the Contemporary Model" )+
+ylim(0,1)+
+scale_fill_manual(values=c("salmon", "cyan3", "navyblue", "red4"))+
+guides(fill=guide_legend(title=" "))
+
+hp_hm_df<-data.frame(paste("Historic Points"),hp_hm)
+colnames(hp_hm_df)<-c("Points","Historic Habitat Value")
+
+bp_hm_df<-data.frame(paste("Background Points"),bp_hm)
+colnames(bp_hm_df)<-c("Points","Historic Habitat Value")
+
+cp_hm_df<-data.frame(paste("Contemporary Points"),cp_hm)
+colnames(cp_hm_df)<-c("Points","Historic Habitat Value")
+
+historic_data<-rbind(hp_hm_df,cp_hm_df,bp_hm_df)
+head(historic_data)
+
+historic.m<-na.omit(melt(historic_data,id="Points"))
+
+dev.new()
+historic_boxplot<-ggplot(data = historic.m, aes(x=Points, y=value)) + geom_boxplot(aes(fill=Points))+
+xlab("Point Type") + ylab("Historic Habitat Suitability") + ggtitle("Habitat Suitability of the Historic Model" )+
+ylim(0,1)+
+scale_fill_manual(values=c("salmon", "cyan3", "navyblue"))+
+guides(fill=guide_legend(title=" "))
+
+grid.arrange(historic_boxplot,contemporary_boxplot,nrow=1)
+########################################
+
+#read in the maxent models
+historic_m<-import_maxent(dir="C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles\\Selected_Model_Hoffman_historic",
+	lambdas="species.lambdas",html='maxent.html')
+
+historic_r<-raster("C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles\\Selected_Model_Hoffman_historic\\maxent.asc")
+
+contemporary_m<-import_maxent(dir="C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles\\Selected_Model_Hoffman_Feb_2020",
+                       lambdas='species.lambdas',html='maxent.html')
+
+contemporary_r<-raster("C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles\\Selected_Model_Hoffman_Feb_2020\\maxent.asc")
+dev.new()
+plot(contemporary_r)
+plot(historic_r)
+response(historic_m)
+dev.new()
+response(contemporary_m)
+
+niche<-nicheOverlap(historic, contemp, stat='I', mask=TRUE, checkNegatives=TRUE)
+niche_full<-nicheOverlap(full.results_hist,full.results, stat='I', mask=TRUE, checkNegatives=TRUE)
+
+density(
