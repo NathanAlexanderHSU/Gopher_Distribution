@@ -259,6 +259,33 @@ wilcox.test(as.numeric(Soil.Drainage) ~ Type, data=comp_data)#p-value=.007369
 wilcox.test(as.numeric(Soil.Texture) ~ Type, data=comp_data)
 wilcox.test(as.numeric(Land.Cover) ~ Type, data=comp_data)
 
+#########################################
+######test for categorical variablies####
+###chi-sq###
+
+both_cov<-data.frame(data.frame(comp_data)$Type,as.numeric(data.frame(comp_data)$Land.Cover))
+colnames(both_cov)<-c("Type","Land.Cover")
+both_cov
+both_cov[both_cov==1]<-"Agriculture"
+both_cov[both_cov==2]<-"Agricultural Berm"
+both_cov[both_cov==3]<-"Forest"
+both_cov[both_cov==4]<-"Grassland or Pasture"
+both_cov[both_cov==5]<-"Low Development"
+both_cov[both_cov==6]<-"Med Development"
+both_cov[both_cov==7]<-"Roadside"
+both_cov[both_cov==8]<-"Unknown"
+both_cov[both_cov==9]<-"Water"
+both_cov
+land_chs<-chisq.test(both_cov[,1],both_cov[,2])
+land_chs$observed
+land_chs
+
+soil_cov<-data.frame(data.frame(comp_data)$Type,as.numeric(data.frame(comp_data)$Soil.Texture))
+colnames(soil_cov)<-c("Type","Soil.Texture")
+soil_cov
+soil_chs<-chisq.test(soil_cov[,1],soil_cov[,2])
+soil_chs$observed
+soil_chs
 #############################
 #############################
 
