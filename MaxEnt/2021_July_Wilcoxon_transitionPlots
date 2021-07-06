@@ -1,0 +1,536 @@
+####Cleaned_Code
+options(java.parameters = "-Xmx2048m")
+
+
+require(spThin)
+require(spatstat)
+require(rgdal)
+require(raster)
+require(maptools)
+require(rgeos)
+require(dismo)
+require(rJava)
+require(sp)
+require(PresenceAbsence)
+library(exifr)
+library(dplyr)
+library(leaflet)
+require(devtools)
+require(prism)
+require(stringi)
+require(sf)
+require(usdm)
+
+##### Read in the study area ###
+
+illinois<-readOGR(dsn='C:\\Users\\Nathan\\Desktop\\Gopher\\Political Boundaries\\Hoffman Range',layer='Geomys_HoffmanRange_Buffer')
+
+### for loop to read in the created raster files ###
+
+rast_names<-c("Precipitation SD","Precipitation Mean","Elevation","Slope","Soil Texture","Soil Drainage","Soil Sand Percentage","Land Cover")
+raster_dir<-"C:\\Users\\Nathan\\Desktop\\Gopher\\fine scale raster stack\\"
+raster_dir
+list.files(raster_dir)
+
+predictors<-raster(paste0(raster_dir,list.files(raster_dir)[1]))
+for (i in 2:length(list.files(raster_dir))){
+	b<-raster(paste0(raster_dir,list.files(raster_dir)[i]))
+	predictors<-stack(predictors,b)
+}
+
+names(predictors)<-rast_names
+
+### compare predictors ###
+
+usdm::vif(predictors)
+pairs(predictors)
+
+##################################
+##################################
+### read in point files and update projections ###
+
+### contemporary thinned points ###
+Contemp_th_pts<-readOGR(dsn="C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles",layer="current_wgs84_thinned")
+
+
+historic_th_pts<-readOGR(dsn="C:\\Users\\Nathan\\Desktop\\Gopher\\historic imagery\\Gopher_presences",layer="thinned_historic_wgs84")
+
+background_pts<-readOGR(dsn="C:\\Users\\Nathan\\Desktop\\Gopher\\historic imagery\\Gopher_presences",layer="background_wgs84")
+
+contemp_absences<-readOGR(dsn="C:\\Users\\Nathan\\Desktop\\Gopher\\Gopher Absences",layer="PA_absences")
+
+contemp_abs<-crop(contemp_absences,illinois)
+
+crs(illinois)<-crs(predictors)
+illinois_84 <- spTransform(illinois, crs(Contemp_th_pts))
+
+plot(illinois)
+points(Contemp_th_pts,col="green")
+points(historic_th_pts,col="darkgreen")
+points(background_pts,col="blue")
+points(contemp_abs,col="red")
+#################################
+#################################
+### set up maxent models to run ###
+
+# beta.parameters<-1 # Create a vector of all the beta paremeters
+beta.parameters <- c(1,2)
+
+for(i in beta.parameters){
+  print(paste("Run Maxent with", i, "as the beta parameter"))
+}
+
+all.combos <- list()
+pred.num <- nlayers(predictors)
+for(i in 2:pred.num){
+  all.combos <- c(all.combos, combn(1:pred.num, i, simplify=FALSE))
+}
+all.combos
+
+###############################
+###############################
+### run the full maxent model ###
+
+### Contemporary model ###
+full.maxent <- maxent(predictors, factors=c("Soil.Texture","Land.Cover"), coordinates(Contemp_th_pts),removeDuplicates=TRUE, args=c("betamultiplier=1", "-J", "-P"),
+				path="C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles\\Contemp_full")
+full.results <- dismo::predict(full.maxent, predictors)
+plot(full.results)
+writeRaster(full.results, "C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles\\Contemp_full/maxent.asc",
+                format="ascii")
+
+#############################
+#read in the maxent models
+
+full.maxent<-import_maxent(dir="C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles\\Contemp_full",
+                       lambdas='species.lambdas',html='maxent.html')
+
+full.results <- dismo::predict(full.maxent, predictors)
+
+
+select_maxent<-import_maxent(dir="C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles\\Selected_Model_Hoffman_Feb_2020",
+                       lambdas='species.lambdas',html='maxent.html')
+
+###############################
+###############################
+###Plot responses ####
+response(full.maxent)
+density(full.maxent)
+
+###############################
+###############################
+###historic MaxEnt###
+
+rast_names<-c("Precipitation SD","Precipitation Mean","Elevation","Slope","Soil Texture","Soil Drainage","Soil Sand Percentage","Land Cover")
+raster_dir_hist<-"C:\\Users\\Nathan\\Desktop\\Gopher\\historic raster stack\\"
+list.files(raster_dir_hist)
+
+predictors_hist<-raster(paste0(raster_dir_hist,list.files(raster_dir_hist)[1]))
+for (i in 2:length(list.files(raster_dir_hist))){
+	c<-raster(paste0(raster_dir_hist,list.files(raster_dir_hist)[i]))
+	predictors_hist<-stack(predictors_hist,c)
+}
+
+### compare predictors ###
+
+usdm::vif(predictors_hist)
+pairs(predictors_hist)
+predictors_hist
+plot(predictors_hist[[3]],add=TRUE)
+plot(illinois,main="Historic Average Precipitation")
+dev.new()
+
+plot(illinois,main="Contemporary Average Precipitation")
+plot(predictors[[2]],add=TRUE)
+###############################
+###############################
+full.maxent_hist <- maxent(predictors_hist, factors=c("Soil.Texture","Land.Cover"), coordinates(historic_th_pts),removeDuplicates=TRUE, args=c("betamultiplier=1", "-J", "-P"),
+				path="C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles\\Historic_full_randomBackground")
+full.results_hist <- dismo::predict(full.maxent_hist, predictors_hist)
+plot(full.results_hist)
+writeRaster(full.results, "C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles\\Historic_full_randomBackground/maxent.asc",
+                format="ascii")
+
+#############################
+#read in the maxent models
+
+full.maxent_hist<-import_maxent(dir="C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles\\Historic_full_randomBackground",
+	lambdas="species.lambdas",html='maxent.html')
+
+select.maxent_hist<-import_maxent(dir="C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles\\Selected_Model_Hoffman_historic",
+	lambdas="species.lambdas",html='maxent.html')
+
+###############################
+###############################
+###Plot responses ####
+response(full.maxent_hist)
+density(full.maxent_hist)
+
+
+###############################
+###############################
+###comparison values###
+
+
+###Extract the Values###
+predictors
+contemp_reduced<-raster("C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles\\Comparison Models\\Reduced_Contemp_landcover/red_land.asc")
+predictors_contemp<-stack(predictors[[1:7]],contemp_reduced)
+predictors_hist
+predictors_contemp<-predictors_red
+predictors_contemp
+c_pred_c_occ<-raster::extract(predictors_contemp,Contemp_th_pts)
+
+
+h_pred_h_occ<-raster::extract(predictors_hist,historic_th_pts)
+
+
+###merge the data into a single data frame###
+
+c_names<-colnames(c_pred_c_occ)
+comp_data_c<-cbind("Contemporary",coordinates(Contemp_th_pts),c_pred_c_occ)
+
+colnames(h_pred_h_occ)
+comp_data_h<-cbind("Historic",coordinates(historic_th_pts),h_pred_h_occ)
+head(comp_data_h)
+
+##build in the type colname. Make sure to note that the predictors are in different orders###
+
+colnames(comp_data_c)<-c("Type","X","Y","Precipitation.SD","Precipitation.Mean","Elevation",
+	"Slope","Soil.Texture","Soil.Drainage","Soil.Sand.Percentage","Land.Cover")
+dim(comp_data_h)
+colnames(comp_data_h)<-c("Type","X","Y","Elevation","Land.Cover","Precipitation.Mean","Precipitation.SD",
+	"Slope","Soil.Drainage","Soil.Sand.Percentage","Soil.Texture")
+comp_data_h
+colnames(comp_data_c)
+head(comp_data_h)
+dim(comp_data_h)
+comp_data_h_re<-cbind(comp_data_h[,1:3],comp_data_h[,7],comp_data_h[,6],comp_data_h[,4],
+	comp_data_h[,8],comp_data_h[,11],comp_data_h[,9],comp_data_h[,10],comp_data_h[,5])
+head(comp_data_h_re)
+colnames(comp_data_h_re)<-c("Type","X","Y","Precipitation.SD","Precipitation.Mean","Elevation",
+	"Slope","Soil.Texture","Soil.Drainage","Soil.Sand.Percentage","Land.Cover")
+(comp_data_h_re)
+comp_data<-rbind(comp_data_h_re,comp_data_c)
+comp_data_df<-as.data.frame(comp_data)
+class(comp_data_df)
+head(comp_data_df)
+
+comp_data_df$Type<-as.factor(comp_data_df$Type)
+comp_data_df$Soil.Texture<-as.factor(comp_data_df$Soil.Texture)
+comp_data_df$Land.Cover<-as.factor(comp_data_df$Land.Cover)
+
+mode(comp_data_df$Type)
+comp_data<-as.data.frame(comp_data)
+
+head(comp_data)
+
+require(dyplyr)
+require(tidyr)
+
+gopher_gather <- gather(comp_data_df, measure, value,"Elevation", factor_key=TRUE)
+
+#gather all the variables. Initially just test with one
+gopher_gather <- gather(comp_data_df, measure, value, "Precipitation.SD":"Land.Cover", factor_key=TRUE)
+head(gopher_gather)
+###plot densities ###
+
+require(ggplot2)
+ggplot(data=gopher_gather) +
+  geom_density(aes(x=as.numeric(value), fill=Type), 
+                 position="identity",
+                 alpha=0.75) +
+  facet_wrap(~measure, scales="free") +
+  theme_minimal() +
+  theme(legend.title=element_blank())+
+  xlab("Value")+ylab("Density")
+  scale_fill_manual(values=c("grey", "black"))+ 
+
+ggplot(data=gopher_gather) +
+  geom_histogram(aes(x=as.numeric(value), fill=Type), 
+                 position="identity",
+                 alpha=0.75) +
+  facet_wrap(~measure, scales="free") +
+  theme_minimal() +
+  theme(legend.title=element_blank())
+  scale_fill_manual(values=c("grey", "black"))+
+
+
+colnames(comp_data)
+
+
+wilcox.test(as.numeric(Soil.Sand.Percentage) ~ Type, data=comp_data) #p-value=.0004351
+wilcox.test(as.numeric(Precipitation.SD) ~ Type, data=comp_data) #p-value=.011128
+wilcox.test(as.numeric(Precipitation.Mean) ~ Type, data=comp_data) #p-value<2.2e-16
+wilcox.test(as.numeric(Elevation) ~ Type, data=comp_data)#p-value=7.115e-14
+wilcox.test(as.numeric(Slope) ~ Type, data=comp_data)#p-value=.5767
+wilcox.test(as.numeric(Soil.Drainage) ~ Type, data=comp_data)#p-value=.007369
+
+##soil texture is a factor, but wilcox has to be numeric
+wilcox.test(as.numeric(Soil.Texture) ~ Type, data=comp_data)
+wilcox.test(as.numeric(Land.Cover) ~ Type, data=comp_data)
+
+######test for categorical variablies####
+###chi-sq###
+###fisher.test() may be an alternative for small sample sizes
+both_cov<-data.frame(data.frame(comp_data)$Type,as.numeric(data.frame(comp_data)$Land.Cover))
+colnames(both_cov)<-c("Type","Land.Cover")
+both_cov
+both_cov[both_cov==1]<-"Agriculture"
+both_cov[both_cov==2]<-"Agricultural Berm"
+both_cov[both_cov==3]<-"Forest"
+both_cov[both_cov==4]<-"Grassland or Pasture"
+both_cov[both_cov==5]<-"Low Development"
+both_cov[both_cov==6]<-"Med Development"
+both_cov[both_cov==7]<-"Roadside"
+both_cov[both_cov==8]<-"Unknown"
+both_cov[both_cov==9]<-"Water"
+both_cov
+land_chs<-chisq.test(both_cov[,1],both_cov[,2])
+land_chs$observed
+land_chs
+
+soil_cov<-data.frame(data.frame(comp_data)$Type,as.numeric(data.frame(comp_data)$Soil.Texture))
+colnames(soil_cov)<-c("Type","Soil.Texture")
+soil_cov
+soil_chs<-chisq.test(soil_cov[,1],soil_cov[,2])
+soil_chs$observed
+soil_chs
+
+
+#############################
+#############################
+
+Compare the background points for the variables that change
+
+background_pts<-readOGR(dsn="C:\\Users\\Nathan\\Desktop\\Gopher\\historic imagery\\Gopher_presences",layer="background_wgs84")
+
+c_pred_bg<-raster::extract(predictors_contemp,background_pts)
+h_pred_bg<-raster::extract(predictors_hist,background_pts)
+
+### merge together ###
+###merge the data into a single data frame###
+
+c_bg_names<-colnames(c_pred_bg)
+comp_data_c_bg<-cbind("Contemporary Background",coordinates(background_pts),c_pred_bg)
+
+colnames(h_pred_bg)
+comp_data_h_bg<-cbind("Historic Background",coordinates(background_pts),h_pred_bg)
+head(comp_data_h_bg)
+##build in the type colname. Make sure to note that the predictors are in different orders###
+
+colnames(comp_data_c_bg)<-c("Type","X","Y","Precipitation.SD","Precipitation.Mean","Elevation",
+	"Slope","Soil.Texture","Soil.Drainage","Soil.Sand.Percentage","Land.Cover")
+
+colnames(comp_data_h_bg)<-c("Type","X","Y","Elevation","Land.Cover","Precipitation.Mean","Precipitation.SD",
+	"Slope","Soil.Drainage","Soil.Sand.Percentage","Soil.Texture")
+
+colnames(comp_data_c_bg)
+colnames(comp_data_h_bg)
+
+comp_data_h_bg_re<-cbind(comp_data_h_bg[,1:3],comp_data_h_bg[,7],comp_data_h_bg[,6],comp_data_h_bg[,4],
+	comp_data_h_bg[,8],comp_data_h_bg[,11],comp_data_h_bg[,9],comp_data_h_bg[,10],comp_data_h_bg[,5])
+
+colnames(comp_data_h_bg_re)<-c("Type","X","Y","Precipitation.SD","Precipitation.Mean","Elevation",
+	"Slope","Soil.Texture","Soil.Drainage","Soil.Sand.Percentage","Land.Cover")
+
+head(comp_data_h_bg)
+
+comp_data_bg<-rbind(comp_data_c_bg,comp_data_h_bg_re)
+comp_data_bg_df<-as.data.frame(comp_data_bg)
+class(comp_data_bg_df)
+head(comp_data_bg_df)
+
+gopher_gather_bg <- gather(comp_data_bg_df, measure, value, c("Precipitation.SD":"Precipitation.Mean","Land.Cover"), factor_key=TRUE)
+
+
+ggplot(data=gopher_gather_bg) +
+  geom_density(aes(x=as.numeric(value), fill=Type), 
+                 position="identity",
+                 alpha=0.75) +
+  facet_wrap(~measure, scales="free") +
+  theme_minimal() +
+  theme(legend.title=element_blank())+
+  xlab("Value")+ylab("Density")
+  scale_fill_manual(values=c("grey", "black")) +
+
+wilcox.test(as.numeric(Land.Cover) ~ Type, data=comp_data_bg_df)
+wilcox.test(as.numeric(Precipitation.SD) ~ Type, data=comp_data_bg_df)
+wilcox.test(as.numeric(Precipitation.Mean) ~ Type, data=comp_data_bg_df)
+
+########################################
+########################################
+### landscape shift at gopher locations###
+##historic##
+c_land_h_occ<-raster::extract(contemp_reduced,historic_th_pts)
+h_land_h_occ<-raster::extract(predictors_hist[[2]],historic_th_pts)
+
+comp_land<-cbind("Contemporary Land Cover",c_land_h_occ)
+hist_land<-cbind("Historic Land Cover",h_land_h_occ)
+
+gopher_land<-rbind(comp_land,hist_land)
+colnames(gopher_land)<-c("Time","Land.Cover")
+head(gopher_land)
+gopher_land[gopher_land==1]<-"Agriculture"
+gopher_land[gopher_land==2]<-"Agricultural Berm"
+gopher_land[gopher_land==3]<-"Forest"
+gopher_land[gopher_land==4]<-"Grassland or Pasture"
+gopher_land[gopher_land==5]<-"Low Development"
+gopher_land[gopher_land==6]<-"Med Development"
+gopher_land[gopher_land==7]<-"Roadside"
+gopher_land[gopher_land==8]<-"Unknown"
+gopher_land[gopher_land==9]<-"Water"
+gopher_land[gopher_land==10]<-"High Development"
+
+head(gopher_land)
+h_occ_chs<-chisq.test(gopher_land[,1],gopher_land[,2])
+h_occ_chs$observed
+h_occ_chs
+
+###Confusion Matrix for landcover change
+require(vcd)
+
+gopher_land_h<-gopher_land[which(gopher_land[,1]=="Historic Land Cover"),]
+gopher_land_c<-gopher_land[which(gopher_land[,1]=="Contemporary Land Cover"),]
+hist_tb <- table(gopher_land_h[,2],gopher_land_c[,2])
+hist_tb
+dim(hist_tb)
+
+##Agreement plot modified code##
+agreementplot(hist_tb, reverse_y=FALSE,main="Historic Land Cover Change", xlab_rot=90,ylab_rot=0,xlab_just="center",ylab_just="center")
+(hist_tb)
+
+hist_tb_full<-cbind(0,hist_tb[,1:3],0,hist_tb[,5:6],hist_tb[,4:4])
+hist_tb_full
+colnames(hist_tb_full)<-c("Agricultural Berm","Agriculture","Forest","Grassland or Pasture",
+	"Roadside","Low Development", "Med Development", "High Development")
+
+hist_tb_full<-rbind(hist_tb_full[1:4,],hist_tb_full[6:6,],0,hist_tb_full[5,],0)
+hist_tb_full
+
+hist_tb_full
+rownames(hist_tb_full)<-c("Agricultural Berm","Agriculture","Forest","Grassland or Pasture",
+	"Roadside","Low Development", "Med Development", "High Development")
+write.csv(hist_tb_full,"C:/Users/Nathan/Desktop/Gopher/Writing/Chapter 1-SDM/figures/historic_lc_change.csv")
+#####################
+install.packages("Gmisc")
+require(Gmisc)
+htmlTable(hist_tb_full, title = "Land Cover Change at Historic Occurrences", ctable = TRUE)
+hst_col<-c("darkgoldenrod","darkgoldenrod1","chartreuse3",
+	"darkolivegreen1","lightgray","gray71","gray55","gray47")
+grid.newpage()
+transitionPlot(hist_tb_full,min_lwd=.01,fill_start_box=hst_col,fill_end_box=hst_col,
+	txt_start_clr="black",txt_end_clr="black",box_label=c("Historic","Contemporary"),mar=unit(rep(12, times = 4), "mm"))
+
+######################
+########################################
+########################################
+### landscape shift at gopher locations###
+##contemporary##
+c_land_c_occ<-raster::extract(contemp_reduced,Contemp_th_pts)
+h_land_c_occ<-raster::extract(predictors_hist[[2]],Contemp_th_pts)
+c_land_c_occ
+comp_land_c<-cbind("Contemporary Land Cover",c_land_c_occ)
+hist_land_c<-cbind("Historic Land Cover",h_land_c_occ)
+
+gopher_land_c<-rbind(comp_land_c,hist_land_c)
+colnames(gopher_land_c)<-c("Time","Land.Cover")
+head(gopher_land_c)
+gopher_land_c[gopher_land_c==1]<-"Agriculture"
+gopher_land_c[gopher_land_c==2]<-"Agricultural Berm"
+gopher_land_c[gopher_land_c==3]<-"Forest"
+gopher_land_c[gopher_land_c==4]<-"Grassland or Pasture"
+gopher_land_c[gopher_land_c==5]<-"Low Development"
+gopher_land_c[gopher_land_c==6]<-"Med Development"
+gopher_land_c[gopher_land_c==7]<-"Roadside"
+gopher_land_c[gopher_land_c==8]<-"Unknown"
+gopher_land_c[gopher_land_c==9]<-"Water"
+gopher_land_c[gopher_land_c==10]<-"High Development"
+
+(gopher_land_c)
+c_occ_chs<-chisq.test(gopher_land_c[,1],gopher_land_c[,2])
+c_occ_chs$observed
+h_occ_chs
+
+###Confusion Matrix for landcover change
+require(vcd)
+
+gopher_conland_h<-gopher_land_c[which(gopher_land_c[,1]=="Historic Land Cover"),]
+gopher_conland_c<-gopher_land_c[which(gopher_land_c[,1]=="Contemporary Land Cover"),]
+con_tb <- table(gopher_conland_h[,2],gopher_conland_c[,2])
+con_tb
+dim(hist_tb)
+hist_tb_full
+(con_tb)
+
+con_tb_full<-cbind(0,con_tb[,1:3],0,con_tb[,5:6],con_tb[,4:4],0,0)
+con_tb_full
+colnames(con_tb_full)<-c("Agricultural Berm","Agriculture","Forest","Grassland or Pasture",
+	"Roadside","Low Development", "Med Development", "High Development","Water","Unknown")
+
+con_tb_full<-rbind(con_tb_full[1:5,],0,0,0,con_tb_full[7:7,],con_tb_full[6:6,])
+dim(con_tb_full)
+write.csv(con_tb_full,"C:/Users/Nathan/Desktop/Gopher/Writing/Chapter 1-SDM/figures/contemporary_lc_change.csv")
+
+rownames(con_tb_full)<-c("Agricultural Berm","Agriculture","Forest","Grassland or Pasture",
+	"Roadside","Low Development", "Med Development", "High Development","Water","Unknown")
+
+##Agreement plot modified code##
+agreementplot(bg_tb_full, reverse_y=FALSE,main="Historic Land Cover Change", xlab_rot=90,ylab_rot=0,xlab_just="center",ylab_just="center")
+(hist_tb)
+
+
+
+#####################
+install.packages("Gmisc")
+require(Gmisc)
+htmlTable(con_tb_full, title = "Land Cover Change at Contemporary Occurrences", ctable = TRUE)
+con_col<-c("darkgoldenrod","darkgoldenrod1","chartreuse3",
+	"darkolivegreen1","lightgray","gray71","gray55","gray47","deepskyblue","cornsilk")
+grid.newpage()
+dim(con_tb)
+transitionPlot(con_tb_full,min_lwd=.01,fill_start_box=con_col,fill_end_box=hst_col,
+	txt_start_clr="black",txt_end_clr="black",box_label=c("Historic","Contemporary"),mar=unit(rep(12, times = 4), "mm"))
+
+######################
+####background points###
+
+c_land_bg_pt<-raster::extract(contemp_reduced,background_pts)
+h_land_bg_pt<-raster::extract(predictors_hist[[2]],background_pts)
+comp_land_bg<-cbind("Contemporary Land Cover",c_land_bg_pt)
+hist_land_bg<-cbind("Historic Land Cover",h_land_bg_pt)
+background_land<-rbind(comp_land_bg,hist_land_bg)
+background_land[background_land=="1"]<-"Agriculture"
+background_land[background_land=="2"]<-"Agricultural Berm"
+background_land[background_land=="3"]<-"Forest"
+background_land[background_land=="4"]<-"Grassland or Pasture"
+background_land[background_land=="5"]<-"Low Development"
+background_land[background_land=="6"]<-"Med Development"
+background_land[background_land=="7"]<-"Roadside"
+background_land[background_land=="8"]<-"Unknown"
+background_land[background_land=="9"]<-"Water"
+background_land[background_land=="10"]<-"High Development"
+
+background_land_chs<-chisq.test(background_land[,1],background_land[,2])
+background_land_chs$observed
+background_land_chs
+
+bg_land_h<-background_land[which(background_land[,1]=="Historic Land Cover"),]
+bg_land_c<-background_land[which(background_land[,1]=="Contemporary Land Cover"),]
+bg_land_c
+bg_tb<-table(bg_land_h[,2],bg_land_c[,2])
+bg_tb
+bg_tb_full<-cbind(0,bg_tb[,1:3],0,bg_tb[,4:5],0,bg_tb[,6],0)
+colnames(bg_tb_full)<-c("Agricultural Berm","Agriculture","Forest","Grassland or Pasture","Roadside",
+	"Low Development","Med Development","High Development","Water","Unknown")
+bg_tb_full<-rbind(bg_tb_full[1:4,],bg_tb_full[7,],bg_tb_full[5:6,],0,bg_tb_full[8,],0)
+bg_tb_full
+
+rownames(bg_tb_full)<-c("Agricultural Berm","Agriculture","Forest","Grassland or Pasture","Roadside",
+	"Low Development","Med Development","High Development", "Water","Unknown")
+bg_tb_full
+
+transitionPlot(bg_tb_full,min_lwd=.1,fill_start_box=con_col,fill_end_box=con_col,txt_start_clr="black",cex=1,
+	txt_end_clr="black",box_label=c("Historic","Contemporary"),lwd_prop_total=FALSE,mar=unit(rep(12,times = 4),"mm"))#arrow_clr=con_col
+write.csv(bg_tb_full,"C:/Users/Nathan/Desktop/Gopher/Writing/Chapter 1-SDM/figures/background_lc_change.csv")
+
