@@ -1,0 +1,311 @@
+
+####Check SDM overlap using ENMTools
+install.packages('ENMTools')
+require(ENMTools)
+require(rgdal)
+hist_SDM<-raster(choose.files())
+contemp_SDM<-raster(choose.files())
+plot(contemp_SDM)
+contemp_msk<-mask(contemp_SDM,hist_SDM)
+plot(contemp_msk)
+contemp_ras_breadth<-raster.breadth(contemp_msk)
+contemp_ras_breadth
+hist_ras_breadth<-raster.breadth(hist_SDM)
+hist_ras_breadth
+ov_lap<-raster.overlap(contemp_msk,hist_SDM)
+ov_lap
+
+
+illinois<-readOGR(dsn='C:\\Users\\Nathan\\Desktop\\Gopher\\Political Boundaries\\Hoffman Range',layer='Geomys_HoffmanRange_Buffer')
+
+###########################
+###ENMTools niche overlap attempt
+#read in the contemporary rasters
+rast_names<-c("Precipitation SD","Precipitation Mean","Elevation","Slope","Soil Texture","Soil Drainage","Soil Sand Percentage","Land Cover")
+raster_dir<-"C:\\Users\\Nathan\\Desktop\\Gopher\\fine scale raster stack\\"
+raster_dir
+list.files(raster_dir)
+
+predictors<-raster(paste0(raster_dir,list.files(raster_dir)[1]))
+for (i in 2:length(list.files(raster_dir))){
+  b<-raster(paste0(raster_dir,list.files(raster_dir)[i]))
+  predictors<-stack(predictors,b)
+}
+
+names(predictors)<-rast_names
+
+###########################
+#read in the historic rasters
+
+rast_names<-c("Precipitation SD","Precipitation Mean","Elevation","Slope","Soil Texture","Soil Drainage","Soil Sand Percentage","Land Cover")
+raster_dir_hist<-"C:\\Users\\Nathan\\Desktop\\Gopher\\historic raster stack\\"
+list.files(raster_dir_hist)
+
+predictors_hist<-raster(paste0(raster_dir_hist,list.files(raster_dir_hist)[1]))
+for (i in 2:length(list.files(raster_dir_hist))){
+  c<-raster(paste0(raster_dir_hist,list.files(raster_dir_hist)[i]))
+  predictors_hist<-stack(predictors_hist,c)
+}
+
+predictors_hist
+##############################
+#replace the contemporary land cover with the reduced land cover
+contemp_reduced<-raster("C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles\\Comparison Models\\Reduced_Contemp_landcover/red_land.asc")
+
+predictors_contemp<-stack(predictors[[1:7]],contemp_reduced)
+
+##############################
+#read in the point files
+require(rgdal)
+Contemp_th_pts<-readOGR(dsn="C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles",layer="current_wgs84_thinned")
+
+historic_th_pts<-readOGR(dsn="C:\\Users\\Nathan\\Desktop\\Gopher\\historic imagery\\Gopher_presences",layer="thinned_historic_wgs84")
+
+background_pts<-readOGR(dsn="C:\\Users\\Nathan\\Desktop\\Gopher\\historic imagery\\Gopher_presences",layer="background_wgs84")
+
+contemp_absences<-readOGR(dsn="C:\\Users\\Nathan\\Desktop\\Gopher\\Gopher Absences",layer="PA_absences")
+
+contemp_abs<-crop(contemp_absences,illinois)
+############################
+#reclassify for only agriculture parameters
+
+contemp_ag<-raster::reclassify(contemp_reduced, c(0,1,NA,1,2,1,3,4,0,4,5,0,5,6,0,6,7,0,
+                                                  7,8,0,8,9,0,9,10,0),right=NA)
+
+contemp_pasture<-raster::reclassify(contemp_reduced, c(0,1,NA,1,2,0,3,4,0,4,5,1,5,6,0,6,7,0,
+                                                       7,8,0,8,9,0,9,10,0),right=NA)
+
+contemp_lowdev<-raster::reclassify(contemp_reduced, c(0,1,NA,1,2,0,3,4,0,4,5,0,5,6,1,6,7,0,
+                                                      7,8,0,8,9,0,9,10,0),right=NA)
+
+hist_ag<-raster::reclassify(predictors_hist[[2]], c(0,1,NA,1,2,1,3,4,0,4,5,0,5,6,0,6,7,0,
+                                                    7,8,0,8,9,0,9,10,0),right=NA)
+
+hist_pasture<-raster::reclassify(predictors_hist[[2]], c(0,1,NA,1,2,0,3,4,0,4,5,1,5,6,0,6,7,0,
+                                                         7,8,0,8,9,0,9,10,0),right=NA)
+
+hist_lowdev<-raster::reclassify(predictors_hist[[2]], c(0,1,NA,1,2,0,3,4,0,4,5,0,5,6,1,6,7,0,
+                                                        7,8,0,8,9,0,9,10,0),right=NA)
+
+
+############################
+#Calculate ag in 1 km buffer; buffer is in meters for extract function
+
+lc_contemp_ag<-raster::extract(contemp_ag,Contemp_th_pts,buffer=1000,fun=sum)
+lc_contemp_past<-raster::extract(contemp_pasture,Contemp_th_pts,buffer=1000,fun=sum)
+lc_contemp_lowdev<-raster::extract(contemp_lowdev,Contemp_th_pts,buffer=1000,fun=sum)
+
+
+lc_hist_ag<-raster::extract(hist_ag,historic_th_pts,buffer=1000,fun=sum)
+lc_hist_past<-raster::extract(hist_pasture,historic_th_pts,buffer=1000,fun=sum)
+lc_hist_lowdev<-raster::extract(hist_lowdev,historic_th_pts,buffer=1000,fun=sum)
+
+#############################
+############################
+#reclassify for only soil text parameters
+predictors_contemp
+contemp_scloam<-raster::reclassify(predictors_contemp[[5]], c(0,1,NA,1,2,0,3,4,0,4,5,0,5,6,0,6,7,1,
+                                                              7,8,0,8,9,0,9,10,0,10,11,0,11,12,0,12,13,0,13,14,0,14,15,0,15,16,0,16,17,0,17,18,0,
+                                                              18,19,0,19,20,0,20,21,0,21,22,0,22,23,0,23,24,0,24,25,0,25,26,0,26,27,0),right=NA)
+
+plot(contemp_scloam)
+contemp_saloam<-raster::reclassify(predictors_contemp[[5]], c(0,1,NA,1,2,0,3,4,0,4,5,0,5,6,0,6,7,0,
+                                                              7,8,0,8,9,1,9,10,0,10,11,0,11,12,0,12,13,0,13,14,0,14,15,0,15,16,0,16,17,0,17,18,0,
+                                                              18,19,0,19,20,0,20,21,0,21,22,0,22,23,0,23,24,0,24,25,0,25,26,0,26,27,0),right=NA)
+
+contemp_stratsa2lo<-raster::reclassify(predictors_contemp[[5]], c(0,1,NA,1,2,0,3,4,0,4,5,0,5,6,0,6,7,0,
+                                                                  7,8,0,8,9,0,9,10,0,10,11,0,11,12,1,12,13,0,13,14,0,14,15,0,15,16,0,16,17,0,17,18,0,
+                                                                  18,19,0,19,20,0,20,21,0,21,22,0,22,23,0,23,24,0,24,25,0,25,26,0,26,27,0),right=NA)
+
+contemp_vfsalo2sclo<-raster::reclassify(predictors_contemp[[5]], c(0,1,NA,1,2,0,3,4,0,4,5,0,5,6,0,6,7,0,
+                                                                   7,8,0,8,9,0,9,10,0,10,11,0,11,12,0,12,13,0,13,14,0,14,15,0,15,16,0,16,17,0,17,18,0,
+                                                                   18,19,0,19,20,0,20,21,0,21,22,0,22,23,1,23,24,0,24,25,0,25,26,0,26,27,0),right=NA)
+
+hist_scloam<-raster::reclassify(predictors_hist[[8]], c(0,1,NA,1,2,0,3,4,0,4,5,0,5,6,0,6,7,1,
+                                                        7,8,0,8,9,0,9,10,0,10,11,0,11,12,0,12,13,0,13,14,0,14,15,0,15,16,0,16,17,0,17,18,0,
+                                                        18,19,0,19,20,0,20,21,0,21,22,0,22,23,0,23,24,0,24,25,0,25,26,0,26,27,0),right=NA)
+
+hist_saloam<-raster::reclassify(predictors_hist[[8]], c(0,1,NA,1,2,0,3,4,0,4,5,0,5,6,0,6,7,0,
+                                                        7,8,0,8,9,1,9,10,0,10,11,0,11,12,0,12,13,0,13,14,0,14,15,0,15,16,0,16,17,0,17,18,0,
+                                                        18,19,0,19,20,0,20,21,0,21,22,0,22,23,0,23,24,0,24,25,0,25,26,0,26,27,0),right=NA)
+
+hist_stratsa2lo<-raster::reclassify(predictors_hist[[8]], c(0,1,NA,1,2,0,3,4,0,4,5,0,5,6,0,6,7,0,
+                                                            7,8,0,8,9,0,9,10,0,10,11,0,11,12,1,12,13,0,13,14,0,14,15,0,15,16,0,16,17,0,17,18,0,
+                                                            18,19,0,19,20,0,20,21,0,21,22,0,22,23,0,23,24,0,24,25,0,25,26,0,26,27,0),right=NA)
+
+hist_vfsalo2sclo<-raster::reclassify(predictors_hist[[8]], c(0,1,NA,1,2,0,3,4,0,4,5,0,5,6,0,6,7,0,
+                                                             7,8,0,8,9,0,9,10,0,10,11,0,11,12,0,12,13,0,13,14,0,14,15,0,15,16,0,16,17,0,17,18,0,
+                                                             18,19,0,19,20,0,20,21,0,21,22,0,22,23,1,23,24,0,24,25,0,25,26,0,26,27,0),right=NA)
+
+#############################
+#Calculate soil properties
+
+st_contemp_scloam<-raster::extract(contemp_scloam,Contemp_th_pts,buffer=1000,fun=sum)
+st_contemp_saloam<-raster::extract(contemp_saloam,Contemp_th_pts,buffer=1000,fun=sum)
+st_contemp_stratsa2lo<-raster::extract(contemp_stratsa2lo,Contemp_th_pts,buffer=1000,fun=sum)
+st_contemp_vfsalo2sclo<-raster::extract(contemp_vfsalo2sclo,Contemp_th_pts,buffer=1000,fun=sum)
+
+
+st_hist_scloam<-raster::extract(hist_scloam,historic_th_pts,buffer=1000,fun=sum)
+st_hist_saloam<-raster::extract(hist_saloam,historic_th_pts,buffer=1000,fun=sum)
+st_hist_stratsa2lo<-raster::extract(hist_stratsa2lo,historic_th_pts,buffer=1000,fun=sum)
+st_hist_vfsalo2sclo<-raster::extract(hist_vfsalo2sclo,historic_th_pts,buffer=1000,fun=sum)
+
+
+#only st_contemp_stratsa2lo has any values; rest are zeros
+
+###########################
+#extract the values
+c_pred_c_occ<-raster::extract(predictors_contemp,Contemp_th_pts)
+h_pred_h_occ<-raster::extract(predictors_hist,historic_th_pts)
+b_pred_c_contemp<-raster::extract(predictors_contemp,background_pts)
+b_pred_h_hist<-raster::extract(predictors_hist,background_pts)
+###########################
+trial<-cbind(c_pred_c_occ[,1:4],c_pred_c_occ[,6:7],lc_contemp_ag,lc_contemp_past,lc_contemp_lowdev,
+             st_contemp_stratsa2lo)
+trial_hist<-cbind(h_pred_h_occ[,4],h_pred_h_occ[,3],h_pred_h_occ[,1],
+                  h_pred_h_occ[,5],h_pred_h_occ[,6:7],lc_hist_ag,lc_hist_past,lc_hist_lowdev,
+                  st_hist_stratsa2lo)
+trial_hist
+colnames(trial_hist)<-c(colnames(trial[,1:6]),"lc_hist_ag","lc_hist_past","lc_hist_lowdev",
+                        "st_hist_stratsa2lo")
+
+###hyp_test
+hist_coord<-data.frame(coordinates(historic_th_pts))
+colnames(hist_coord)<-c("Longitude","Latitude")
+hist_sp <- enmtools.species(species.name = "geomys", 
+                            presence.points = hist_coord)
+hist_sp
+test_hist<-enmtools.hypervolume(hist_sp,predictors_hist,verbose=TRUE)
+test_hist
+plot(test_hist$hv)
+names(predictors_hist)
+names(predictors_contemp)
+
+contemp_coord<-data.frame(coordinates(Contemp_th_pts))
+colnames(contemp_coord)<-c("Longitude","Latitude")
+contemp_sp <- enmtools.species(species.name = "geomys", 
+                            presence.points = contemp_coord)
+predictors_contemp_srt<-stack(predictors_contemp[[3]],predictors_contemp[[8]],predictors_contemp[[2]],predictors_contemp[[1]],
+                              predictors_contemp[[4]],predictors_contemp[[6:7]],predictors_contemp[[5]])
+test_contemp<-enmtools.hypervolume(contemp_sp,predictors_contemp_srt,verbose=TRUE)
+########################
+
+
+###PCAMIX
+
+c_pred_c_occ<-raster::extract(predictors_contemp_srt,Contemp_th_pts)
+h_pred_h_occ<-raster::extract(predictors_hist,historic_th_pts)
+b_pred_c_contemp<-raster::extract(predictors_contemp,background_pts)
+b_pred_h_hist<-raster::extract(predictors_hist,background_pts)
+
+install.packages('PCAmixdata')
+require(PCAmixdata)
+
+head(c_pred_c_occ)
+
+contemp_qual<-data.frame(as.factor(c_pred_c_occ[,2]),as.factor(c_pred_c_occ[,8]))
+colnames(contemp_qual)<-c("Land.Cover","Soil.Texture")
+contemp_quan<-cbind(c_pred_c_occ[,1],c_pred_c_occ[,3:7])
+dim(contemp_quan)
+colnames(contemp_quan)<-c("Elevation",colnames(c_pred_c_occ[,3:7]))
+contemp_pca<-PCAmix(X.quanti = scale(contemp_quan) ,
+                    X.quali = contemp_qual ,graph=TRUE,rename.level=TRUE,ndim=4)
+
+barplot(contemp_pca$eig[,2])
+contemp_pca$eig
+
+
+head(h_pred_h_occ)
+hist_qual<-data.frame(as.factor(h_pred_h_occ[,2]),as.factor(h_pred_h_occ[,8]))
+colnames(hist_qual)<-c("Land.Cover","Soil.Texture")
+hist_quan<-cbind(h_pred_h_occ[,1],h_pred_h_occ[,3:7])
+colnames(hist_quan)<-c("Elevation",colnames(c_pred_c_occ[,3:7]))
+hist_pca<-PCAmix(X.quanti = scale(hist_quan) ,
+                    X.quali = hist_qual ,graph=TRUE,rename.level=TRUE,ndim=4)
+
+install.packages('hypervolume')
+require(hypervolume)
+hist_pca$ind
+hist_band<-estimate_bandwidth(hist_pca$ind$coord,method='silverman')
+
+hist_band
+test_hist_hyp_gaus<-hypervolume(hist_pca$ind$coord,method="gaussian",
+                                kde.bandwidth=estimate_bandwidth(hist_pca$ind$coord,method='silverman'),name="Historic")
+
+
+test_hist_hyp_svm<-hypervolume(hist_pca$ind$coord,method="svm",name="Historic")
+(test_hist_hyp_svm)
+plot(test_hist_hyp)
+test_hist_hyp_gaus
+plot(test_hist_hyp_gaus)
+
+test_contemp_hyp_gaus<-hypervolume(contemp_pca$ind$coord,method="gaussian",
+                                   kde.bandwidth=estimate_bandwidth(contemp_pca$ind$coord,method='silverman'),name="Contemporary")
+hist_pca$eig
+
+test_contemp_hyp_svm<-hypervolume(contemp_pca$ind$coord,method="svm",name="Contemporary")
+test_contemp_hyp_gaus
+plot(test_contemp_hyp_svm)
+plot(test_contemp_hyp_gaus)
+test_contemp_hyp
+
+pca_centroid<-hypervolume_distance(test_hist_hyp_gaus, test_contemp_hyp_gaus, type = "centroid", 
+                     num.points.max = 1000, check.memory = TRUE)
+pca_centroid
+
+pca_join<-hypervolume_join(test_hist_hyp_gaus,test_contemp_hyp_gaus)
+pca_set<-hypervolume_set(test_hist_hyp_gaus,test_contemp_hyp_gaus,check.memory=FALSE)
+pca_sor<-hypervolume_overlap_statistics(pca_set)
+pca_sor
+
+#####Gower dissimilarity
+
+
+install.packages('FD')
+require(FD)
+head(c_pred_c_occ)
+c_pred_c_occ_df<-data.frame(scale(c_pred_c_occ[,1]),as.factor(c_pred_c_occ[,2]),scale(c_pred_c_occ[,3:7]),as.factor(c_pred_c_occ[,8]))
+head(c_pred_c_occ_df)  
+colnames(c_pred_c_occ_df)<-c("Elevation","Land.Cover",colnames(c_pred_c_occ_df[,3:7]),"Soil.Texture")
+contemp_gowdis<-gowdis(c_pred_c_occ_df)
+attributes(contemp_gowdis)
+
+contemp_pcoa<-pcoa(contemp_gowdis)
+head(contemp_pcoa)
+contemp_hyp_svm_gow<-hypervolume(contemp_pcoa$vectors[,1:5],method="svm")
+contemp_hyp_svm_gow
+contemp_hyp_g_gow<-hypervolume(contemp_pcoa$vectors[,1:4],method="gaussian",
+                               kde.bandwidth=estimate_bandwidth(contemp_pcoa$vectors[,1:4],method='silverman'),name="Contemporary")
+)
+plot(contemp_hyp_g_gow)
+
+head(h_pred_h_occ)
+h_pred_h_occ_df<-data.frame(h_pred_h_occ[,1],as.factor(h_pred_h_occ[,2]),h_pred_h_occ[,3:7],as.factor(h_pred_h_occ[,8]))
+h_pred_h_occ_df_sc<-data.frame(scale(h_pred_h_occ[,1]),as.factor(h_pred_h_occ[,2]),scale(h_pred_h_occ[,3:7]),as.factor(h_pred_h_occ[,8]))
+hist_gowdis<-gowdis(h_pred_h_occ_df)
+hist_gowdis_sc<-gowdis(h_pred_h_occ_df_sc)
+attributes(contemp_gowdis)
+
+hist_pcoa<-pcoa(hist_gowdis)
+hist_pcoa_sc<-pcoa(hist_gowdis_sc)
+hist_hyp_svm_gow<-hypervolume(hist_pcoa$vectors[,1:5],method="svm")
+hist_hyp_svm_gow_sc<-hypervolume(hist_pcoa_sc$vectors[,1:5],method="svm")
+
+plot(hist_hyp_svm_gow)
+plot(hist_hyp_svm_gow_sc)
+
+plot(hist_hyp_svm_gow)
+hist_hyp_g_gow<-hypervolume(hist_pcoa$vectors[,1:4],method="gaussian",
+                            kde.bandwidth=estimate_bandwidth(hist_pcoa$vectors[,1:4],method='silverman'),name="Historic")
+)
+plot(hist_hyp_g_gow)
+
+pca_join_gow<-hypervolume_join(test_hist_hyp_gaus,test_contemp_hyp_gaus)
+pca_set_gow<-hypervolume_set(hist_hyp_g_gow,contemp_hyp_g_gow,check.memory=FALSE)
+pca_set
+pca_sor_gow<-hypervolume_overlap_statistics(pca_set)
+pca_sor
+pca_centroid_gow<-hypervolume_distance(hist_hyp_g_gow, contemp_hyp_g_gow, type = "centroid", 
+                                   num.points.max = 1000, check.memory = TRUE)
+pca_centroid_gow
