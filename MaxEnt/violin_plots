@@ -1,0 +1,370 @@
+install.packages("spThin")
+install.packages("spatstat")
+install.packages("rgdal")
+install.packages("raster")
+install.packages("maptools")
+install.packages("rgeos")
+install.packages("dismo")
+install.packages("rJava")
+install.packages("sp")
+install.packages("PresenceAbsence")
+install.packages("exifr")
+install.packages("dplyr")
+install.packages("leaflet")
+install.packages("devtools")
+install.packages("prism")
+install.packages("stringi")
+install.packages("sf")
+install.packages("usdm")
+install.packages('ggdist')
+require(ggdist)
+require(spThin)
+require(spatstat)
+require(rgdal)
+require(raster)
+require(maptools)
+require(rgeos)
+require(dismo)
+require(rJava)
+require(sp)
+require(PresenceAbsence)
+library(exifr)
+library(dplyr)
+library(leaflet)
+require(devtools)
+require(prism)
+require(stringi)
+require(sf)
+require(usdm)
+illinois<-readOGR(dsn='C:\\Users\\Nathan\\Desktop\\Gopher\\Political Boundaries\\Hoffman Range',layer='Geomys_HoffmanRange_Buffer')
+rast_names<-c("Precipitation SD","Precipitation Mean","Elevation","Slope","Soil Texture","Soil Drainage","Soil Sand Percentage","Land Cover")
+raster_dir<-"C:\\Users\\Nathan\\Desktop\\Gopher\\fine scale raster stack\\"
+raster_dir
+list.files(raster_dir)
+
+predictors<-raster(paste0(raster_dir,list.files(raster_dir)[1]))
+for (i in 2:length(list.files(raster_dir))){
+	b<-raster(paste0(raster_dir,list.files(raster_dir)[i]))
+	predictors<-stack(predictors,b)
+}
+
+predictors
+names(predictors)<-rast_names
+
+contemp_reduced<-raster("C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles\\Comparison Models\\Reduced_Contemp_landcover/red_land.asc")
+predictors_contemp<-stack(predictors[[1:7]],contemp_reduced)
+
+Contemp_th_pts<-readOGR(dsn="C:\\Users\\Nathan\\Desktop\\Gopher\\Presence_Only_shapefiles",layer="current_wgs84_thinned")
+
+
+historic_th_pts<-readOGR(dsn="C:\\Users\\Nathan\\Desktop\\Gopher\\historic imagery\\Gopher_presences",layer="thinned_historic_wgs84")
+
+background_pts<-readOGR(dsn="C:\\Users\\Nathan\\Desktop\\Gopher\\historic imagery\\Gopher_presences",layer="background_wgs84")
+
+contemp_absences<-readOGR(dsn="C:\\Users\\Nathan\\Desktop\\Gopher\\Gopher Absences",layer="PA_absences")
+
+contemp_abs<-crop(contemp_absences,illinois)
+
+crs(illinois)<-crs(predictors)
+illinois_84 <- spTransform(illinois, crs(Contemp_th_pts))
+
+plot(illinois)
+points(Contemp_th_pts,col="green")
+points(historic_th_pts,col="darkgreen")
+points(background_pts,col="blue")
+points(contemp_abs,col="red")
+
+predictors_hist
+predictors_contemp<-predictors_red
+predictors_contemp
+c_pred_c_occ<-raster::extract(predictors_contemp,Contemp_th_pts)
+
+rast_names<-c("Precipitation SD","Precipitation Mean","Elevation","Slope","Soil Texture","Soil Drainage","Soil Sand Percentage","Land Cover")
+raster_dir_hist<-"C:\\Users\\Nathan\\Desktop\\Gopher\\historic raster stack\\"
+list.files(raster_dir_hist)
+
+predictors_hist<-raster(paste0(raster_dir_hist,list.files(raster_dir_hist)[1]))
+for (i in 2:length(list.files(raster_dir_hist))){
+	c<-raster(paste0(raster_dir_hist,list.files(raster_dir_hist)[i]))
+	predictors_hist<-stack(predictors_hist,c)
+}
+predictors_hist
+
+c_pred_c_occ<-raster::extract(predictors_contemp,Contemp_th_pts)
+h_pred_h_occ<-raster::extract(predictors_hist,historic_th_pts)
+b_pred_c_contemp<-raster::extract(predictors_contemp,background_pts)
+b_pred_h_hist<-raster::extract(predictors_hist,background_pts)
+###merge the data into a single data frame###
+
+c_names<-colnames(c_pred_c_occ)
+comp_data_c<-cbind("Contemporary",coordinates(Contemp_th_pts),c_pred_c_occ)
+
+colnames(h_pred_h_occ)
+comp_data_h<-cbind("Historic",coordinates(historic_th_pts),h_pred_h_occ)
+head(comp_data_h)
+comp_data_b_contemp<-cbind("Background Contemp",coordinates(background_pts),b_pred_c_contemp)
+comp_data_b_hist<-cbind("Background Historic",coordinates(background_pts),b_pred_h_hist)
+
+
+##build in the type colname. Make sure to note that the predictors are in different orders###
+
+colnames(comp_data_c)<-c("Type","X","Y","Precipitation.SD","Precipitation.Mean","Elevation",
+	"Slope","Soil.Texture","Soil.Drainage","Soil.Sand.Percentage","Land.Cover")
+colnames(comp_data_c)<-c("Type","X","Y","Precipitation.SD","Precipitation.Mean","Elevation",
+	"Slope","Soil.Texture","Soil.Drainage","Soil.Sand.Percentage","Land.Cover")
+
+
+dim(comp_data_h)
+colnames(comp_data_h)<-c("Type","X","Y","Elevation","Land.Cover","Precipitation.Mean","Precipitation.SD",
+	"Slope","Soil.Drainage","Soil.Sand.Percentage","Soil.Texture")
+colnames(comp_data_b_hist)<-c("Type","X","Y","Elevation","Land.Cover","Precipitation.Mean","Precipitation.SD",
+	"Slope","Soil.Drainage","Soil.Sand.Percentage","Soil.Texture")
+
+
+comp_data_h
+colnames(comp_data_c)
+head(comp_data_h)
+dim(comp_data_h)
+comp_data_h_re<-cbind(comp_data_h[,1:3],comp_data_h[,7],comp_data_h[,6],comp_data_h[,4],
+	comp_data_h[,8],comp_data_h[,11],comp_data_h[,9],comp_data_h[,10],comp_data_h[,5])
+comp_data_b_h_re<-cbind(comp_data_b_hist[,1:3],comp_data_b_hist[,7],comp_data_b_hist[,6],comp_data_b_hist[,4],
+	comp_data_b_hist[,8],comp_data_b_hist[,11],comp_data_b_hist[,9],comp_data_b_hist[,10],comp_data_b_hist[,5])
+
+head(comp_data_b_h_re)
+colnames(comp_data_h_re)<-c("Type","X","Y","Precipitation.SD","Precipitation.Mean","Elevation",
+	"Slope","Soil.Texture","Soil.Drainage","Soil.Sand.Percentage","Land.Cover")
+colnames(comp_data_b_h_re)<-c("Type","X","Y","Precipitation.SD","Precipitation.Mean","Elevation",
+	"Slope","Soil.Texture","Soil.Drainage","Soil.Sand.Percentage","Land.Cover")
+
+(comp_data_h_re)
+comp_data<-rbind(comp_data_h_re,comp_data_b_h_re,comp_data_c,comp_data_b_contemp)
+comp_data_df<-as.data.frame(comp_data)
+class(comp_data_df)
+head(comp_data_df)
+
+comp_data_df$Type<-as.factor(comp_data_df$Type)
+comp_data_df$Soil.Texture<-as.factor(comp_data_df$Soil.Texture)
+comp_data_df$Land.Cover<-as.factor(comp_data_df$Land.Cover)
+
+mode(comp_data_df$Type)
+comp_data<-as.data.frame(comp_data)
+
+head(comp_data)
+boxplot(as.numeric(comp_data[,4:11]),by="Type")
+install.packages("tidyr")
+require(dyplyr)
+require(tidyr)
+
+gopher_gather <- gather(comp_data_df, measure, value,"Elevation", factor_key=TRUE)
+
+#gather all the variables. Initially just test with one
+gopher_gather <- gather(comp_data_df, measure, value, "Precipitation.SD":"Land.Cover", factor_key=TRUE)
+head(gopher_gather)
+###plot densities ###
+
+require(ggplot2)
+ggplot(data=gopher_gather) +
+  geom_density(aes(x=as.numeric(value), fill=Type), 
+                 position="identity",
+                 alpha=0.75) +
+  facet_wrap(~measure, scales="free") +
+  theme_minimal() +
+  theme(legend.title=element_blank())+
+  xlab("Value")+ylab("Density")
+  scale_fill_manual(values=c("grey", "black")) 
+
+ggplot(data=gopher_gather,aes(y=as.numeric(value), x=Type,fill=Type)) +
+	  geom_violin(
+    ## custom bandwidth
+    adjust = .5, 
+    ## adjust height
+    width = .5, 
+    ## move geom to the right
+    justification = -.2, 
+    ## remove slab interval
+    .width = 0, 
+    point_colour = NA)+
+    geom_boxplot(fill=NA,
+    width = .12, 
+    ## remove outliers
+    outlier.color = NA ## `outlier.shape = NA` works as well
+  ) +
+  ## add dot plots from {ggdist} package
+  ## remove white space on the left
+  coord_cartesian(xlim = c(1.2, NA)) +
+
+ facet_wrap(~measure, scales="free") +
+  theme_minimal() +
+  theme(legend.title=element_blank(),axis.text.x=element_blank())+
+  xlab("Point Type")+ylab("Value")
+ + 
+  geom_boxplot(
+    width = .12, 
+    ## remove outliers
+    outlier.color = NA ## `outlier.shape = NA` works as well
+  ) +
+  ## add dot plots from {ggdist} package
+  ## remove white space on the left
+  coord_cartesian(xlim = c(1.2, NA)) +
+  facet_wrap(~measure, scales="free") +
+  theme_minimal() +
+  theme(legend.title=element_blank(),axis.text.x=element_blank())+
+  xlab("Point Type")+ylab("Value")
+
+  scale_fill_manual(values=c("grey", "black")) 
+
+ggplot(data=gopher_gather) +
+  geom_histogram(aes(x=as.numeric(value), fill=Type), 
+                 position="identity",
+                 alpha=0.75) +
+  facet_wrap(~measure, scales="free") +
+  theme_minimal() +
+  theme(legend.title=element_blank())
+  scale_fill_manual(values=c("grey", "black"))
+
+ggplot(data = gopher_gather) + geom_violin(aes(y=as.numeric(value),x=Type), 
+                 position="dodge2",
+                 alpha=0.75) +
+  facet_wrap(~measure, scales="free") +
+  theme_minimal() +
+  theme(legend.title=element_blank())+
+  xlab("metric")+ylab("value")
+  scale_fill_manual(values=c("grey", "black")) 
+
+
+ggplot(data=gopher_gather, aes(x = Type, y = value)) + 
+  ## add half-violin from {ggdist} package
+  ggdist::stat_halfeye(
+    ## custom bandwidth
+    adjust = .5, 
+    ## adjust height
+    width = .6, 
+    ## move geom to the right
+    justification = -.2, 
+    ## remove slab interval
+    .width = 0, 
+    point_colour = NA
+  ) + 
+  geom_boxplot(
+    width = .12, 
+    ## remove outliers
+    outlier.color = NA ## `outlier.shape = NA` works as well
+  ) +
+  ## add dot plots from {ggdist} package
+  ggdist::stat_dots(
+    ## orientation to the left
+    side = "left", 
+    ## move geom to the left
+    justification = 1.1, 
+    ## adjust grouping (binning) of observations 
+    binwidth = .25
+  ) + 
+  ## remove white space on the left
+  coord_cartesian(xlim = c(1.2, NA))
+
+)+
+xlab("Point Type") + ylab("Contemprorary Habitat Suitability") + ggtitle("Habitat Suitability of the Contemporary Model" )+
+ylim(0,1)+
+scale_fill_manual(values=c("salmon", "cyan3", "navyblue", "red4"))+
+guides(fill=guide_legend(title=" "))
+colnames(comp_data)
+
+
+wilcox.test(as.numeric(Soil.Sand.Percentage) ~ Type, data=comp_data) #p-value=.0004351
+wilcox.test(as.numeric(Precipitation.SD) ~ Type, data=comp_data) #p-value=.011128
+wilcox.test(as.numeric(Precipitation.Mean) ~ Type, data=comp_data) #p-value<2.2e-16
+wilcox.test(as.numeric(Elevation) ~ Type, data=comp_data)#p-value=7.115e-14
+wilcox.test(as.numeric(Slope) ~ Type, data=comp_data)#p-value=.5767
+wilcox.test(as.numeric(Soil.Drainage) ~ Type, data=comp_data)#p-value=.007369
+
+##soil texture is a factor, but wilcox has to be numeric
+wilcox.test(as.numeric(Soil.Texture) ~ Type, data=comp_data)
+wilcox.test(as.numeric(Land.Cover) ~ Type, data=comp_data)
+
+######test for categorical variablies####
+###chi-sq###
+###fisher.test() may be an alternative for small sample sizes
+both_cov<-data.frame(data.frame(comp_data)$Type,as.numeric(data.frame(comp_data)$Land.Cover))
+colnames(both_cov)<-c("Type","Land.Cover")
+both_cov
+both_cov[both_cov==1]<-"Agriculture"
+both_cov[both_cov==2]<-"Agricultural Berm"
+both_cov[both_cov==3]<-"Forest"
+both_cov[both_cov==4]<-"Grassland or Pasture"
+both_cov[both_cov==5]<-"Low Development"
+both_cov[both_cov==6]<-"Med Development"
+both_cov[both_cov==7]<-"Roadside"
+both_cov[both_cov==8]<-"Unknown"
+both_cov[both_cov==9]<-"Water"
+both_cov
+land_chs<-chisq.test(both_cov[,1],both_cov[,2])
+land_chs$observed
+land_chs
+
+soil_cov<-data.frame(data.frame(comp_data)$Type,as.numeric(data.frame(comp_data)$Soil.Texture))
+colnames(soil_cov)<-c("Type","Soil.Texture")
+soil_cov
+soil_chs<-chisq.test(soil_cov[,1],soil_cov[,2])
+soil_chs$observed
+soil_chs
+
+
+#############################
+#############################
+
+Compare the background points for the variables that change
+
+background_pts<-readOGR(dsn="C:\\Users\\Nathan\\Desktop\\Gopher\\historic imagery\\Gopher_presences",layer="background_wgs84")
+
+c_pred_bg<-raster::extract(predictors_contemp,background_pts)
+h_pred_bg<-raster::extract(predictors_hist,background_pts)
+
+### merge together ###
+###merge the data into a single data frame###
+
+c_bg_names<-colnames(c_pred_bg)
+comp_data_c_bg<-cbind("Contemporary Background",coordinates(background_pts),c_pred_bg)
+
+colnames(h_pred_bg)
+comp_data_h_bg<-cbind("Historic Background",coordinates(background_pts),h_pred_bg)
+head(comp_data_h_bg)
+##build in the type colname. Make sure to note that the predictors are in different orders###
+
+colnames(comp_data_c_bg)<-c("Type","X","Y","Precipitation.SD","Precipitation.Mean","Elevation",
+	"Slope","Soil.Texture","Soil.Drainage","Soil.Sand.Percentage","Land.Cover")
+
+colnames(comp_data_h_bg)<-c("Type","X","Y","Elevation","Land.Cover","Precipitation.Mean","Precipitation.SD",
+	"Slope","Soil.Drainage","Soil.Sand.Percentage","Soil.Texture")
+
+colnames(comp_data_c_bg)
+colnames(comp_data_h_bg)
+
+comp_data_h_bg_re<-cbind(comp_data_h_bg[,1:3],comp_data_h_bg[,7],comp_data_h_bg[,6],comp_data_h_bg[,4],
+	comp_data_h_bg[,8],comp_data_h_bg[,11],comp_data_h_bg[,9],comp_data_h_bg[,10],comp_data_h_bg[,5])
+
+colnames(comp_data_h_bg_re)<-c("Type","X","Y","Precipitation.SD","Precipitation.Mean","Elevation",
+	"Slope","Soil.Texture","Soil.Drainage","Soil.Sand.Percentage","Land.Cover")
+
+head(comp_data_h_bg)
+
+comp_data_bg<-rbind(comp_data_c_bg,comp_data_h_bg_re)
+comp_data_bg_df<-as.data.frame(comp_data_bg)
+class(comp_data_bg_df)
+head(comp_data_bg_df)
+
+gopher_gather_bg <- gather(comp_data_bg_df, measure, value, c("Precipitation.SD":"Precipitation.Mean","Land.Cover"), factor_key=TRUE)
+
+
+ggplot(data=gopher_gather_bg) +
+  geom_density(aes(x=as.numeric(value), fill=Type), 
+                 position="identity",
+                 alpha=0.75) +
+  facet_wrap(~measure, scales="free") +
+  theme_minimal() +
+  theme(legend.title=element_blank())+
+  xlab("Value")+ylab("Density")
+  scale_fill_manual(values=c("grey", "black")) +
+
+wilcox.test(as.numeric(Land.Cover) ~ Type, data=comp_data_bg_df)
+wilcox.test(as.numeric(Precipitation.SD) ~ Type, data=comp_data_bg_df)
+wilcox.test(as.numeric(Precipitation.Mean) ~ Type, data=comp_data_bg_df)
