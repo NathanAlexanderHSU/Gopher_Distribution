@@ -1,0 +1,20 @@
+##created 11.28.2022
+
+sibship<-read.csv(choose.files())
+head(sibship)
+
+require(geosphere)
+
+dim(sibship)
+Coords1<-cbind(sibship$Long1,sibship$Lat1)
+Coords2<-cbind(sibship$Long2,sibship$Lat2)
+
+plot(Coords1)
+points(Coords2,col="blue")
+
+distances<-distGeo(Coords1,Coords2)
+length(distances)
+sib_out<-cbind(sibship,distances)
+head(sib_out)
+hist(sib_out$distances/1000)
+write.csv(sib_out,"C:/Users/Nathan/Desktop/Gopher/COLONY/ColonyOutputwDistances.csv")
