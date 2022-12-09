@@ -1,0 +1,73 @@
+gopher_full<-read.csv(choose.files())
+head(gopher_full)
+
+gopher_illinoensis<-gopher_full[which(gopher_full$Subspecies=="illinoensis"),]
+head(gopher_illinoensis)
+dim(gopher_illinoensis)
+
+install.packages('spThin')
+require(spThin)
+
+coords_il<-cbind(gopher_illinoensis[,4],gopher_illinoensis[,3])
+
+thin_st<-thin.algorithm(cbind(gopher_illinoensis[,4],gopher_illinoensis[,3]),
+	thin.par=10,rep=5)
+
+##check to see how many points remain after thinning.
+##thinning at about 10 km gets to ~40 samples, which is comparable to 
+##G. b. wisconsensis
+ 
+
+##check sample size
+for(i in 1:5){
+print(dim(thin_st[[i]]))
+}
+
+
+plot(coords_il,pch=16)
+for(i in 1:5){
+points(thin_st[[i]],col=i,pch=17,cex=1.5)
+}
+
+for(i in 1:5){
+colnames(thin_st[[i]])<-c("Long","Lat")
+}
+
+
+
+
+dim(thin_st[[1]])
+Gbi1<-merge(gopher_illinoensis, thin_st[[1]],by=c("Long","Lat"))
+Gbi2<-merge(gopher_illinoensis, thin_st[[2]],by=c("Long","Lat"))
+Gbi3<-merge(gopher_illinoensis, thin_st[[3]],by=c("Long","Lat"))
+Gbi4<-merge(gopher_illinoensis, thin_st[[4]],by=c("Long","Lat"))
+Gbi5<-merge(gopher_illinoensis, thin_st[[5]],by=c("Long","Lat"))
+
+
+dim(Gbi1)
+dim(Gbi2)
+dim(Gbi3)
+dim(Gbi4)
+dim(Gbi5)
+
+##because some individuals were caught at the same coordinates,
+##remove individuals with duplicate coordinates
+
+Gbi1_no_dup<-Gbi1[!duplicated(Gbi1[c(1,2)]),]
+Gbi2_no_dup<-Gbi1[!duplicated(Gbi2[c(1,2)]),]
+Gbi3_no_dup<-Gbi1[!duplicated(Gbi3[c(1,2)]),]
+Gbi4_no_dup<-Gbi1[!duplicated(Gbi4[c(1,2)]),]
+Gbi5_no_dup<-Gbi1[!duplicated(Gbi5[c(1,2)]),]
+
+dim(Gbi5_no_dup)
+
+out.dir<-"C:\\Users\\nba2\\Desktop\\STRUCTURE\\thinned_illinoensis"
+head(Gbi1)
+
+
+write.csv(Gbi1_no_dup,paste0(out.dir,"\\Gbi1_no_dup.csv"))
+write.csv(Gbi2_no_dup,paste0(out.dir,"\\Gbi2_no_dup.csv"))
+write.csv(Gbi3_no_dup,paste0(out.dir,"\\Gbi3_no_dup.csv"))
+write.csv(Gbi4_no_dup,paste0(out.dir,"\\Gbi4_no_dup.csv"))
+write.csv(Gbi5_no_dup,paste0(out.dir,"\\Gbi5_no_dup.csv"))
+
