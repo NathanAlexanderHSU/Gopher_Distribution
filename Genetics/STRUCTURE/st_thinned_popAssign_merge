@@ -1,0 +1,105 @@
+##Structure sensitivity data compiling
+
+#set the sensitivity directory
+sens_dir<-"C:\\Users\\Nathan\\Desktop\\Gopher\\genetics\\Structure\\Gbi_sensitivity_test"
+
+##read in the STRUCTURE files
+gbi1<-read.table(paste0(sens_dir,"\\Gbi1_no_dup_ST.txt"))
+gbi2<-read.table(paste0(sens_dir,"\\Gbi2_no_dup_ST.txt"))
+gbi3<-read.table(paste0(sens_dir,"\\Gbi3_no_dup_ST.txt"))
+gbi4<-read.table(paste0(sens_dir,"\\Gbi4_no_dup_ST.txt"))
+gbi5<-read.table(paste0(sens_dir,"\\Gbi5_no_dup_ST.txt"))
+
+
+##read in CLUMPP files
+
+gbi1_clumpp<-read.table(paste0(sens_dir,"\\CLUMPP_files\\K2_all\\sens_1_k2.output"))
+gbi13_clumpp<-read.table(paste0(sens_dir,"\\CLUMPP_files\\K2_all\\sens_1_k3.output"))
+
+gbi2_clumpp<-read.table(paste0(sens_dir,"\\CLUMPP_files\\K2_all\\sens_2_k2.output"))
+gbi3_clumpp<-read.table(paste0(sens_dir,"\\CLUMPP_files\\K2_all\\sens_3_k2.output"))
+gbi4_clumpp<-read.table(paste0(sens_dir,"\\CLUMPP_files\\K2_all\\sens_4_k2.output"))
+gbi5_clumpp<-read.table(paste0(sens_dir,"\\CLUMPP_files\\K2_all\\sens_5_k2.output"))
+gbr06_1_k2_clumpp<-read.table(paste0(sens_dir,"\\CLUMPP_files\\K2_all\\gbr06_even_k2.output"))
+gbr06_1_k3_clumpp<-read.table(paste0(sens_dir,"\\CLUMPP_files\\K2_all\\gbr06_even_k3.output"))
+gbr06_k2_clumpp<-read.table(paste0(sens_dir,"\\CLUMPP_files\\K2_all\\gbr06_k2.output"))
+
+dim(gbi1_clumpp)
+##combine the files-only need the ID, not the loci from the STRUCTURE file
+pop_sens1<-cbind(gbi1[,1],gbi1_clumpp[,6:7],gbi13_clumpp[,6:8])
+pop_sens2<-cbind(gbi2[,1],gbi2_clumpp[,6:7])
+pop_sens3<-cbind(gbi3[,1],gbi3_clumpp[,6:7])
+pop_sens4<-cbind(gbi4[,1],gbi4_clumpp[,6:7])
+pop_sens5<-cbind(gbi5[,1],gbi5_clumpp[,6:7])
+pop_gbr06_even<-cbind(gbi1[,1],gbr06_1_k2_clumpp[,6:7],gbr06_1_k3_clumpp[,6:8])
+
+head(pop_gbr06_even)
+
+##read in data file with coordinates. 
+##note for STRUCTURE, had to remove the "Gbi" prefix to some IDs, so need to remove this for merging
+
+full_data<-read.csv(paste0(sens_dir,"\\structure_CLUMPP_mergefile.csv"))
+colnames(full_data)
+
+pop_gbr06<-cbind(full_data[,1],gbr06_k2_clumpp[,6:7])
+##set the colnames of the merged STRUCTURE and CLUMPP files
+colnames_pop<-c("ID","K1","K2")
+
+colnames(pop_sens1)<-colnames_pop
+colnames(pop_sens2)<-colnames_pop
+colnames(pop_sens3)<-colnames_pop
+colnames(pop_sens4)<-colnames_pop
+colnames(pop_sens5)<-colnames_pop
+colnames(pop_gbr06_even)<-c("ID","K2_1","K2_2","K3_1","K3_2","K3_3")
+colnames(pop_sens1)<-c("ID","K2_1","K2_2","K3_1","K3_2","K3_3")
+
+colnames(gbr06_k2_clumpp[,6:7])<-c("K1","K2")
+pop_gbr06<-cbind(full_data[,1],gbr06_k2_clumpp[,6:7],full_data[,-1])
+colnames(pop_gbr06)<-c("ID","K1","K2",colnames(full_data[,-1]))
+head(pop_gbr06)
+
+##merge all the files together by ID
+
+sens_1_full<-merge(pop_sens1,full_data,by="ID")
+sens_2_full<-merge(pop_sens2,full_data,by="ID")
+sens_3_full<-merge(pop_sens3,full_data,by="ID")
+sens_4_full<-merge(pop_sens4,full_data,by="ID")
+sens_5_full<-merge(pop_sens5,full_data,by="ID")
+gbr06_even_full<-merge(pop_gbr06_even,full_data,by="ID")
+
+##ensure that all the samples were retained by checking number of rows
+nrow(sens_1_full)
+nrow(pop_sens1)
+
+nrow(sens_2_full)
+nrow(pop_sens2)
+
+nrow(sens_3_full)
+nrow(pop_sens3)
+
+nrow(sens_4_full)
+nrow(pop_sens4)
+
+nrow(sens_5_full)
+nrow(pop_sens5)
+
+nrow(pop_gbr06_even)
+nrow(gbr06_even_full)
+
+dim(sens_1_full[which(sens_1_full$Subspecies=="illinoensis"),])
+dim(sens_2_full[which(sens_2_full$Subspecies=="illinoensis"),])
+dim(sens_3_full[which(sens_3_full$Subspecies=="illinoensis"),])
+dim(sens_4_full[which(sens_4_full$Subspecies=="illinoensis"),])
+dim(sens_5_full[which(sens_5_full$Subspecies=="illinoensis"),])
+dim(gbr06_even_full[which(gbr06_even_full$Subspecies=="illinoensis"),])
+
+
+##all retained all samples. write out the file
+write.csv(sens_1_full,paste0(sens_dir,"\\Sens_k2_mergedfiles\\sens_1_full.csv"))
+write.csv(sens_2_full,paste0(sens_dir,"\\Sens_k2_mergedfiles\\sens_2_full.csv"))
+write.csv(sens_3_full,paste0(sens_dir,"\\Sens_k2_mergedfiles\\sens_3_full.csv"))
+write.csv(sens_4_full,paste0(sens_dir,"\\Sens_k2_mergedfiles\\sens_4_full.csv"))
+write.csv(sens_5_full,paste0(sens_dir,"\\Sens_k2_mergedfiles\\sens_5_full.csv"))
+write.csv(gbr06_even_full,paste0(sens_dir,"\\Sens_k2_mergedfiles\\gbr06_even_full.csv"))
+write.csv(pop_gbr06,paste0(sens_dir,"\\Sens_k2_mergedfiles\\gbr06_full.csv"))
+
